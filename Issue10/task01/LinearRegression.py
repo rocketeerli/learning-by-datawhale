@@ -1,8 +1,6 @@
 # -*- coding:utf-8  -*-
 import torch
 from torch import nn
-from IPython import display
-from matplotlib import pyplot as plt
 import numpy as np
 import random
 import logging
