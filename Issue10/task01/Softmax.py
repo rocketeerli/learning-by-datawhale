@@ -5,7 +5,8 @@ import torchvision
 import numpy as np
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
-import time
+from torch import nn
+from torch.nn import init
 import logging
 
 logging.basicConfig(level=logging.INFO,
@@ -119,32 +120,66 @@ class SoftmaxOriginal():
                 n += y.shape[0]
             with torch.no_grad():
                 test_acc = self.evaluate_accuracy(self.dataset.test_iter)
-            logging.info(f'epoch {epoch+1} \t loss {train_loss_sum} \t ' +
+            logging.info(f'epoch {epoch+1} \t loss {train_loss_sum/n} \t ' +
                          f'train acc {train_acc_sum/n} \t test acc {test_acc}')
 
 
-def test():
-    dataset = Dataset()
-    # 显示数据
-    X, y = [], []
-    for i in range(10):
-        X.append(dataset.mnist_train[i][0])
-        y.append(dataset.mnist_train[i][1])
-    dataset.show_data(X, y)
-    # 计算加载全部数据的时间
-    start = time.time()
-    for X, y in dataset.train_iter:
-        continue
-    logging.info('%.2f sec' % (time.time() - start))
-    # 
-    X = torch.tensor([[1, 2, 3], [4, 5, 6]])
-    logging.info(f'sum dim 0 keepdim True {X.sum(dim=0, keepdim=True)}')
-    logging.info(f'sum dim 1 keepdim True {X.sum(dim=1, keepdim=True)}')
-    logging.info(f'sum dim 0 keepdim False {X.sum(dim=0, keepdim=False)}')
-    logging.info(f'sum dim 1 keepdim False {X.sum(dim=1, keepdim=False)}')
+class LinearNet(nn.Module):
+    ''' 线性分类模型 '''
+    def __init__(self, inputs=784, outputs=10):
+        super(LinearNet, self).__init__()
+        self.linear = nn.Linear(inputs, outputs)
+
+    def forward(self, x):
+        y = self.linear(x.view(x.shape[0], -1))
+        return y
+
+
+class SoftmaxPytorch():
+    def __init__(self, dataset, inputs=784, outputs=10, lr=0.1, epochs=5):
+        self.dataset = dataset
+        self.epochs = epochs
+        self.net = LinearNet(inputs=784, outputs=10)
+        # 初始化模型参数
+        init.normal_(self.net.linear.weight, mean=0, std=0.01)
+        init.constant_(self.net.linear.bias, val=0)
+        # 定义损失函数
+        self.loss = nn.CrossEntropyLoss()
+        # 定义优化函数
+        self.optimizer = torch.optim.SGD(self.net.parameters(), lr=lr)
+
+    def evaluate_accuracy(self, data_iter):
+        ''' 计算模型准确率 '''
+        acc_sum, n = 0.0, 0
+        for X, y in data_iter:
+            acc_sum += (self.net(X).argmax(dim=1) == y).float().sum().item()
+            n += y.shape[0]
+        return acc_sum / n
+
+    def train(self):
+        for epoch in range(self.epochs):
+            train_loss_sum, train_acc_sum, n = 0.0, 0.0, 0
+            for X, y in self.dataset.train_iter:
+                y_hat = self.net(X)
+                loss = self.loss(y_hat, y)
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+                # 数据统计
+                train_loss_sum += loss.item() * y.shape[0]
+                train_acc_sum += (y_hat.argmax(dim=1) == y).sum().item()
+                n += y.shape[0]
+            with torch.no_grad():
+                test_acc = self.evaluate_accuracy(self.dataset.test_iter)
+            logging.info(f'epoch {epoch+1} \t loss {train_loss_sum/n} \t ' +
+                         f'train acc {train_acc_sum/n} \t test acc {test_acc}')
 
 
 if __name__ == '__main__':
     dataset = Dataset()
+    logging.info('从零开始做 Softmax...')
     model = SoftmaxOriginal(dataset)
     model.train()
+    logging.info('使用 Pytorch 的简洁实现版...')
+    model_pytorch = SoftmaxPytorch(dataset)
+    model_pytorch.train()
