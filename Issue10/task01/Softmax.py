@@ -1,59 +1,13 @@
 # -*- coding:utf-8  -*-
-import matplotlib.pyplot as plt
+from data_fashion_mnist import Dataset
 import torch
-import torchvision
 import numpy as np
-import torchvision.transforms as transforms
-from torch.utils.data import DataLoader
 from torch import nn
 from torch.nn import init
 import logging
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s : %(message)s')
-
-
-class Dataset():
-    def __init__(self, batch_size=256, num_workers=4):
-        self.classes = [
-            't-shirt', 'trouser', 'pullover', 'dress', 'coat', 'sandal',
-            'shirt', 'sneaker', 'bag', 'ankle boot'
-        ]
-        self.batch_size = batch_size
-        self.mnist_train = torchvision.datasets.FashionMNIST(
-            root='./data',
-            train=True,
-            download=True,
-            transform=transforms.ToTensor())
-        self.mnist_test = torchvision.datasets.FashionMNIST(
-            root='./data',
-            train=False,
-            download=True,
-            transform=transforms.ToTensor())
-        self.train_iter = DataLoader(self.mnist_train,
-                                     batch_size=batch_size,
-                                     shuffle=True,
-                                     num_workers=num_workers)
-        self.test_iter = DataLoader(self.mnist_test,
-                                    batch_size=batch_size,
-                                    shuffle=False,
-                                    num_workers=num_workers)
-        logging.info(type(self.mnist_train))
-        logging.info(f'mnist train length: {len(self.mnist_train)}')
-        logging.info(f'mnist test length: {len(self.mnist_test)}')
-
-    def get_labels(self, labels):
-        return [self.classes[int(i)] for i in labels]
-
-    def show_data(self, images, labels):
-        labels = self.get_labels(labels)
-        _, figs = plt.subplots(1, len(images), figsize=(12, 12))
-        for f, img, lbl in zip(figs, images, labels):
-            f.imshow(img.view((28, 28)).numpy())
-            f.set_title(lbl)
-            f.axes.get_xaxis().set_visible(False)
-            f.axes.get_yaxis().set_visible(False)
-        plt.show()
 
 
 class SoftmaxOriginal():
