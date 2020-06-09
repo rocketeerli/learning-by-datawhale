@@ -137,13 +137,53 @@ class MultiLinearRegression():
         plt.show()
 
 
+class MultiLRSimple():
+    ''' 高维线性回归 简洁实现 '''
+    def __init__(self, train_data, test_data, lr=0.003, wd=3):
+        self.train_features = train_data[0]
+        self.train_labels = train_data[1]
+        self.test_features = test_data[0]
+        self.test_labels = test_data[1]
+        # 初始化模型
+        inputs = self.train_features.shape[-1]
+        self.net = nn.Linear(inputs, 1)
+        nn.init.normal_(self.net.weight, mean=0, std=1)
+        nn.init.normal_(self.net.bias, mean=0, std=1)
+        self.loss = nn.MSELoss()
+        self.optimizer_w = torch.optim.SGD(params=[self.net.weight], lr=lr, weight_decay=wd)
+        self.optimizer_b = torch.optim.SGD(params=[self.net.bias], lr=lr)
+
+    def train(self, epochs=100, batchsize=1):
+        dataset = torch.utils.data.TensorDataset(self.train_features, self.train_labels)
+        train_iter = torch.utils.data.DataLoader(dataset, batchsize, shuffle=True)
+        train_ls, test_ls = [], []
+        for epoch in range(epochs):
+            for X, y in train_iter:
+                loss = self.loss(self.net(X), y).mean()
+                self.optimizer_w.zero_grad()
+                self.optimizer_b.zero_grad()
+                loss.backward()
+                self.optimizer_w.step()
+                self.optimizer_b.step()
+            train_loss = self.loss(self.net(self.train_features), self.train_labels).mean().item()
+            test_loss = self.loss(self.net(self.test_features), self.test_labels).mean().item()
+            train_ls.append(train_loss)
+            test_ls.append(test_loss)
+            logging.info(f'epoch {epoch}: train loss: {train_loss}' +
+                         f'test loss: {test_loss}')
+        logging.info(f'L2 norm of w: {self.net.weight.data.norm().item()}')
+        show_data(range(1, epochs+1), train_ls, 'epochs', 'loss',
+                  range(1, epochs+1), test_ls, ['train', 'test'])
+        plt.show()
+
+
 if __name__ == '__main__':
-    # logging.info(f'多项式拟合 ...')
-    # n_train, n_test = 100, 100
-    # features, labels = data_generator(num=n_train+n_test)
-    # train_data = (features[:n_train, :], labels[:n_train])
-    # test_data = (features[n_train:, :], labels[n_train:])
-    # MultivariateFunctionFitting(train_data, test_data).train()
+    logging.info(f'多项式拟合 ...')
+    n_train, n_test = 100, 100
+    features, labels = data_generator(num=n_train+n_test)
+    train_data = (features[:n_train, :], labels[:n_train])
+    test_data = (features[n_train:, :], labels[n_train:])
+    MultivariateFunctionFitting(train_data, test_data).train()
     logging.info(f'高维线性回归 从零开始实现 ...')
     n_train, n_test = 100, 100
     features, labels = data_generator(n_train+n_test, inputs=200, b=0.05)
@@ -151,4 +191,4 @@ if __name__ == '__main__':
     test_data = (features[n_train:], labels[n_train:])
     MultiLinearRegression(train_data, test_data).train(lambd=3)
     logging.info(f'高维线性回归 简洁实现 ...')
-
+    MultiLRSimple(train_data, test_data).train()
