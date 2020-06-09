@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.utils.data as Data
 import numpy as np
+from data_fashion_mnist import Dataset
 import matplotlib.pyplot as plt
 import logging
 
@@ -159,14 +160,14 @@ class MultiLRSimple():
         train_ls, test_ls = [], []
         for epoch in range(epochs):
             for X, y in train_iter:
-                loss = self.loss(self.net(X), y).mean()
+                loss = self.loss(self.net(X), y)
                 self.optimizer_w.zero_grad()
                 self.optimizer_b.zero_grad()
                 loss.backward()
                 self.optimizer_w.step()
                 self.optimizer_b.step()
-            train_loss = self.loss(self.net(self.train_features), self.train_labels).mean().item()
-            test_loss = self.loss(self.net(self.test_features), self.test_labels).mean().item()
+            train_loss = self.loss(self.net(self.train_features), self.train_labels).item()
+            test_loss = self.loss(self.net(self.test_features), self.test_labels).item()
             train_ls.append(train_loss)
             test_ls.append(test_loss)
             logging.info(f'epoch {epoch}: train loss: {train_loss}' +
@@ -177,6 +178,129 @@ class MultiLRSimple():
         plt.show()
 
 
+class DropoutOriginal():
+    ''' 利用四层 MLP 从零开始实现 Dropout '''
+    def __init__(self, coef: list, drop_prob: list):
+        assert len(coef) == 4
+        assert len(drop_prob) == 2
+        self.coef = coef
+        self.drop_prob1 = drop_prob[0]
+        self.drop_prob2 = drop_prob[1]
+        self.params = self._init_coef(*coef)
+
+    def _init_coef(self, *args):
+        ''' 参数的初始化 '''
+        inputs, hiddens1, hiddens2, outputs = args
+        W1 = torch.tensor(np.random.normal(0, 0.01, size=(inputs, hiddens1)),
+                          dtype=torch.float, requires_grad=True)
+        b1 = torch.zeros(hiddens1, requires_grad=True)
+        W2 = torch.tensor(np.random.normal(0, 0.01, size=(hiddens1, hiddens2)),
+                          dtype=torch.float, requires_grad=True)
+        b2 = torch.zeros(hiddens2, requires_grad=True)
+        W3 = torch.tensor(np.random.normal(0, 0.01, size=(hiddens2, outputs)),
+                          dtype=torch.float, requires_grad=True)
+        b3 = torch.zeros(outputs, requires_grad=True)
+        return [W1, b1, W2, b2, W3, b3]
+
+    def net(self, X, is_training=True):
+        X = X.view(-1, self.coef[0])
+        H1 = (torch.matmul(X, self.params[0]) + self.params[1]).relu()
+        if is_training:
+            H1 = self.dropout(H1, self.drop_prob1)
+        H2 = (torch.matmul(H1, self.params[2]) + self.params[3]).relu()
+        if is_training:
+            H2 = self.dropout(H2, self.drop_prob2)
+        return torch.matmul(H2, self.params[4]) + self.params[5]
+
+    def dropout(self, X, drop_prob):
+        assert 0 <= drop_prob <= 1
+        X = X.float()
+        keep_prob = 1 - drop_prob
+        if keep_prob == 0:
+            return torch.zeros_like(X)
+        mask = (torch.rand(X.shape) < keep_prob).float()
+        return mask * X / keep_prob
+
+    def evaluate_accuracy(self, data_iter):
+        acc_sum, n = 0.0, 0
+        for X, y in data_iter:
+            X = X.view(-1, self.coef[0])
+            acc_sum += (self.net(X, is_training=False).argmax(dim=1) == y).float().sum().item()
+            n += y.shape[0]
+        return acc_sum / n
+
+    def train(self, dataset: Dataset, epochs=5, lr=0.1):
+        loss = torch.nn.CrossEntropyLoss()
+        optimizer = torch.optim.SGD(self.params, lr=lr)
+        for epoch in range(epochs):
+            loss_sum, acc_sum, n = 0.0, 0.0, 0
+            for X, y in dataset.train_iter:
+                X = X.view(-1, self.coef[0])
+                y_hat = self.net(X)
+                ls = loss(y_hat, y)
+                optimizer.zero_grad()
+                ls.backward()
+                optimizer.step()
+                # 数据统计
+                num = y.shape[0]
+                n += num
+                loss_sum += ls.item() * num
+                acc_sum += (y_hat.argmax(dim=1) == y).float().sum().item()
+            with torch.no_grad():
+                test_acc = self.evaluate_accuracy(dataset.test_iter)
+            logging.info(f'epoch {epoch+1} \t train epoch loss: {loss_sum/n} \t ' +
+                         f'train epoch acc: {acc_sum/n} \t test acc: {test_acc}')
+
+
+class DropoutPytorch():
+    def __init__(self, coef: list, drop_prob: list, lr=0.1):
+        assert len(coef) == 4 and len(drop_prob) == 2
+        self.inputs = coef[0]
+        self.net = nn.Sequential(
+            nn.Linear(coef[0], coef[1]),
+            nn.ReLU(),
+            nn.Dropout(drop_prob[0]),
+            nn.Linear(coef[1], coef[2]),
+            nn.ReLU(),
+            nn.Dropout(drop_prob[1]),
+            nn.Linear(coef[2], coef[3]),
+        )
+        for param in self.net.parameters():
+            nn.init.normal_(param, mean=0, std=0.01)
+        self.loss = nn.CrossEntropyLoss()
+        self.optimizer = torch.optim.SGD(self.net.parameters(), lr=lr)
+
+    def evaluate_accuracy(self, data_iter):
+        acc_sum, n = 0.0, 0
+        for X, y in data_iter:
+            X = X.view(-1, self.inputs)
+            self.net.eval()
+            acc_sum += (self.net(X).argmax(dim=1) == y).float().sum().item()
+            self.net.train()
+            n += y.shape[0]
+        return acc_sum / n
+
+    def train(self, dataset: Dataset, epochs=5):
+        for epoch in range(epochs):
+            loss_sum, acc_sum, n = 0.0, 0.0, 0
+            for X, y in dataset.train_iter:
+                X = X.view(-1, self.inputs)
+                y_hat = self.net(X)
+                loss = self.loss(y_hat, y)
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+                # 数据统计
+                num = y.shape[0]
+                n += num
+                loss_sum += loss.item() * num
+                acc_sum += (y_hat.argmax(dim=1) == y).float().sum().item()
+            with torch.no_grad():
+                test_acc = self.evaluate_accuracy(dataset.test_iter)
+            logging.info(f'epoch {epoch+1} \t train epoch loss: {loss_sum/n} \t ' +
+                         f'train epoch acc: {acc_sum/n} \t test acc: {test_acc}')
+
+
 if __name__ == '__main__':
     logging.info(f'多项式拟合 ...')
     n_train, n_test = 100, 100
@@ -184,6 +308,7 @@ if __name__ == '__main__':
     train_data = (features[:n_train, :], labels[:n_train])
     test_data = (features[n_train:, :], labels[n_train:])
     MultivariateFunctionFitting(train_data, test_data).train()
+
     logging.info(f'高维线性回归 从零开始实现 ...')
     n_train, n_test = 100, 100
     features, labels = data_generator(n_train+n_test, inputs=200, b=0.05)
@@ -192,3 +317,12 @@ if __name__ == '__main__':
     MultiLinearRegression(train_data, test_data).train(lambd=3)
     logging.info(f'高维线性回归 简洁实现 ...')
     MultiLRSimple(train_data, test_data).train()
+
+    logging.info(f'丢弃法 从零开始实现的 MLP')
+    batch_size = 256
+    dataset = Dataset(batch_size)
+    neur_nums = [784, 256, 256, 10]
+    drop_prob = [0.2, 0.5]
+    DropoutOriginal(neur_nums, drop_prob).train(dataset)
+    logging.info(f'丢弃法 MLP简洁版')
+    DropoutPytorch(neur_nums, drop_prob).train(dataset)
