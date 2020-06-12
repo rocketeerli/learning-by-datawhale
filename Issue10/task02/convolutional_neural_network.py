@@ -47,12 +47,35 @@ def train_Conv2D(data, labels, kernal_size=(1, 2), epochs=30, lr=0.01):
     logging.info(f'bias: {conv2d.bias.data}')
 
 
+def conv_simple(X, out_channel=3, kernel_size=(3, 5), stride=1, padding=(1, 2)):
+    ''' 卷积层简洁实现 '''
+    logging.info(f'shape of X: {X.shape}')
+    num, in_channel, width, height = X.shape
+    conv2d = nn.Conv2d(in_channels=in_channel, out_channels=out_channel,
+                       kernel_size=kernel_size, stride=stride, padding=padding)
+    Y = conv2d(X)
+    logging.info(f'shape of Y: {Y.shape}')
+    logging.info(f'shape of weight: {conv2d.weight.shape}')
+    logging.info(f'shape of bias: {conv2d.bias.shape}')
+
+
+def pool_simple(X, kernel_size=3, padding=1, stride=(2, 1)):
+    ''' 池化层简洁实现 '''
+    logging.info(f'X: {X}')
+    logging.info(f'shape of X: {X.shape}')
+    pool2d = nn.MaxPool2d(kernel_size=kernel_size, padding=padding, stride=stride)
+    Y = pool2d(X)
+    logging.info(f'Y: {Y}')
+    logging.info(f'shape of Y: {Y.shape}')
+
+
 if __name__ == '__main__':
     logging.info('卷积-----二维互相关运算...')
     X = torch.tensor(np.arange(9)).view(3, 3)
     Kernal = torch.tensor(np.arange(4)).view(2, 2)
     Y = corr2d(X, Kernal)
     logging.info(f'\nY: {Y}')
+
     logging.info('二维卷积层训练 锐化 获取图像边缘信息')
     train_data, labels = torch.ones(6, 8), torch.zeros(6, 7)
     train_data[:, 2:6] = 0
@@ -61,3 +84,11 @@ if __name__ == '__main__':
     logging.info(f'train data: {train_data}')
     logging.info(f'labels: {labels}')
     train_Conv2D(train_data, labels)
+
+    logging.info(f'卷积层简洁实现...')
+    X = torch.rand(4, 2, 3, 5)
+    conv_simple(X)
+
+    logging.info(f'池化层简洁实现...')
+    X = torch.arange(32, dtype=torch.float32).view(1, 2, 4, 4)
+    pool_simple(X)
