@@ -50,7 +50,7 @@ def init_weights(m):
         nn.init.xavier_uniform_(m.weight)
 
 
-def evaluate_accuracy(data_iter, net):
+def evaluate_accuracy(data_iter, net, device='cuda'):
     ''' 计算准确率 '''
     acc_sum, n = torch.tensor([0], dtype=torch.float32, device=device), 0
     for X, y in data_iter:
@@ -58,7 +58,7 @@ def evaluate_accuracy(data_iter, net):
         net.eval()
         with torch.no_grad():
             y = y.long()
-            acc = torch.sum((torch.argmax(net(X), dim=1) == y))
+            acc = torch.sum(torch.argmax(net(X), dim=1) == y)
             acc_sum += acc
             n += y.shape[0]
     return acc_sum.item() / n

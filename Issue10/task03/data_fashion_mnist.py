@@ -5,22 +5,27 @@ from torch.utils.data import DataLoader
 
 
 class Dataset():
-    def __init__(self, batch_size=256, root='./data', num_workers=4):
+    def __init__(self, batch_size=256, resize=None, root='./data', num_workers=4):
         self.classes = [
             't-shirt', 'trouser', 'pullover', 'dress', 'coat', 'sandal',
             'shirt', 'sneaker', 'bag', 'ankle boot'
         ]
         self.batch_size = batch_size
+        trans = []
+        if resize:
+            trans.append(torchvision.transforms.Resize(size=resize))
+        trans.append(torchvision.transforms.ToTensor())
+        transform = torchvision.transforms.Compose(trans)
         self.mnist_train = torchvision.datasets.FashionMNIST(
             root=root,
             train=True,
             download=True,
-            transform=transforms.ToTensor())
+            transform=transform)
         self.mnist_test = torchvision.datasets.FashionMNIST(
             root=root,
             train=False,
             download=True,
-            transform=transforms.ToTensor())
+            transform=transform)
         self.train_iter = DataLoader(self.mnist_train,
                                      batch_size=batch_size,
                                      shuffle=True,
