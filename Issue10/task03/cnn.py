@@ -2,8 +2,6 @@
 import torch
 import time
 from torch import nn, optim
-import torchvision
-import numpy as np
 import torch.nn.functional as F
 from data_fashion_mnist import Dataset
 from lenet import evaluate_accuracy, Flatten
@@ -116,10 +114,45 @@ class VGG():
         return nn.Sequential(*blk)
 
 
+class GlobalAvgPool2d(nn.Module):
+    ''' 全局平均池化层 '''
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        return F.avg_pool2d(x, kernel_size=x.size()[2:])
+
+
+class NiN():
+    def __init__(self):
+        self.net = nn.Sequential(
+            self.nin_block(1, 96, kernel_size=11, stride=4, padding=0),
+            nn.MaxPool2d(kernel_size=3, stride=2),
+            self.nin_block(96, 256, kernel_size=5, stride=1, padding=2),
+            nn.MaxPool2d(kernel_size=3, stride=2),
+            self.nin_block(256, 384, kernel_size=3, stride=1, padding=1),
+            nn.MaxPool2d(kernel_size=3, stride=2),
+            nn.Dropout(0.5),
+            # 卷积层最后一层
+            self.nin_block(384, NUM_CLASSES, kernel_size=3, stride=1, padding=1),
+            GlobalAvgPool2d(),
+            Flatten(),
+        )
+
+    def nin_block(self, in_channels, out_channels, kernel_size, stride, padding):
+        blk = nn.Sequential(nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding),
+                            nn.ReLU(),
+                            nn.Conv2d(out_channels, out_channels, kernel_size=1),
+                            nn.ReLU(),
+                            nn.Conv2d(out_channels, out_channels, kernel_size=1),
+                            nn.ReLU())
+        return blk
+
+
 def test(net: nn.Module):
     ''' 测试模型 '''
-    X = torch.rand(1, 1, 224, 224)
-    for name, blk in vgg.net.named_children():
+    X = torch.rand(1, 1, 224, 224).to(device)
+    for name, blk in net.named_children():
         X = blk(X)
         logging.info(f'{name}, output shape: {X.shape}')
 
@@ -131,10 +164,15 @@ if __name__ == '__main__':
 
     logging.info('AlexNet ...')
     net = AlexNet().to(device)
-    optimizer = torch.optim.Adam(net.parameters(), lr=lr)
+    optimizer = optim.Adam(net.parameters(), lr=lr)
     train(net, dataset, criterion, optimizer)
 
     logging.info('VGG ...')
     vgg = VGG(conv_arch, fc_features, fc_hidden_units).net.to(device)
-    optimizer = torch.optim.Adam(vgg.parameters(), lr=lr)
+    optimizer = optim.Adam(vgg.parameters(), lr=lr)
     train(vgg, dataset, criterion, optimizer)
+
+    logging.info('NiN ...')
+    nin = NiN().net.to(device)
+    optimizer = optim.Adam(nin.parameters(), lr=2*lr)
+    train(nin, dataset, criterion, optimizer)
