@@ -6,13 +6,22 @@ import torchvision
 import numpy as np
 import torch.nn.functional as F
 from data_fashion_mnist import Dataset
-from lenet import evaluate_accuracy
+from lenet import evaluate_accuracy, Flatten
 import logging
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s: %(message)s')
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-lr, epochs, batch_size = 0.001, 3, 16
+NUM_CLASSES = 10
+lr, epochs, batch_size = 0.001, 5, 256
+
+# VGG 网络参数
+ratio = 8
+conv_arch = [(1, 1, 64//ratio), (1, 64//ratio, 128//ratio), (2, 128//ratio, 256//ratio), 
+                   (2, 256//ratio, 512//ratio), (2, 512//ratio, 512//ratio)]
+# 经过5个vgg_block, 宽高会减半5次, 变成 224/32 = 7
+fc_features = 512 // ratio * 7 * 7  # c * w * h
+fc_hidden_units = 4096 // ratio  # 任意
 
 
 class AlexNet(nn.Module):
@@ -48,7 +57,7 @@ class AlexNet(nn.Module):
             nn.ReLU(),
             nn.Dropout(0.5),
             # 最后一层全连接，输出层
-            nn.Linear(4096, 10),
+            nn.Linear(4096, NUM_CLASSES),
         )
 
     def forward(self, img):
@@ -79,12 +88,53 @@ def train(net: nn.Module, dataset: Dataset, criterion, optimizer, lr=None):
         logging.info(f'epoch {epoch+1}: \t loss: {train_ls.item()/n} \t train acc:' +
                      f'{train_acc.item()/n} \t test acc: {test_acc} \t time: {time.time()-start}')
 
+
+class VGG():
+    def __init__(self, conv_arch, fc_features, fc_hidden_units=4096):
+        self.net = nn.Sequential()
+        for i, (num_convs, in_channels, out_channels) in enumerate(conv_arch):
+            self.net.add_module('vgg_block_'+str(i+1), self.vgg_block(
+                                num_convs, in_channels, out_channels))
+        self.net.add_module('fc', nn.Sequential(Flatten(),
+                            nn.Linear(fc_features, fc_hidden_units),
+                            nn.ReLU(),
+                            nn.Dropout(0.5),
+                            nn.Linear(fc_hidden_units, fc_hidden_units),
+                            nn.ReLU(),
+                            nn.Dropout(0.5),
+                            nn.Linear(fc_hidden_units, NUM_CLASSES)))
+
+    def vgg_block(self, num_convs, in_channels, out_channels):
+        blk = []
+        for i in range(num_convs):
+            if i == 0:
+                blk.append(nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1))
+            else:
+                blk.append(nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1))
+            blk.append(nn.ReLU())
+        blk.append(nn.MaxPool2d(kernel_size=2, stride=2))
+        return nn.Sequential(*blk)
+
+
+def test(net: nn.Module):
+    ''' 测试模型 '''
+    X = torch.rand(1, 1, 224, 224)
+    for name, blk in vgg.net.named_children():
+        X = blk(X)
+        logging.info(f'{name}, output shape: {X.shape}')
+
+
 if __name__ == '__main__':
     logging.info(f'running on {device} ...')
     dataset = Dataset(batch_size, resize=224)
+    criterion = nn.CrossEntropyLoss()
 
     logging.info('AlexNet ...')
     net = AlexNet().to(device)
     optimizer = torch.optim.Adam(net.parameters(), lr=lr)
-    criterion = nn.CrossEntropyLoss()
     train(net, dataset, criterion, optimizer)
+
+    logging.info('VGG ...')
+    vgg = VGG(conv_arch, fc_features, fc_hidden_units).net.to(device)
+    optimizer = torch.optim.Adam(vgg.parameters(), lr=lr)
+    train(vgg, dataset, criterion, optimizer)
