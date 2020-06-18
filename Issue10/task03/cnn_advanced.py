@@ -1,9 +1,7 @@
 # -*- coding:utf-8 -*-
-import time
 import torch
 from torch import nn, optim
 import torch.nn.functional as F
-import torchvision
 import logging
 from lenet import Flatten
 from cnn import train, GlobalAvgPool2d
@@ -112,7 +110,7 @@ class LeNetBatchNormalization():
 
 def lenet_bn(lr, simple=True):
     lenet = LeNetBatchNormalization(simple=simple).net.to(device)
-    optimizer = torch.optim.Adam(lenet.parameters(), lr=lr)
+    optimizer = optim.Adam(lenet.parameters(), lr=lr)
     train(lenet, dataset, criterion, optimizer)
 
 
@@ -183,6 +181,82 @@ def test_residual(net=None):
             logging.info(f'{name} output shape:\t{X.size()}')
 
 
+class DenseBlock(nn.Module):
+    def __init__(self, num_convs, in_channels, out_channels):
+        super(DenseBlock, self).__init__()
+        net = []
+        for i in range(num_convs):
+            in_c = in_channels + i * out_channels
+            net.append(self.conv_block(in_c, out_channels))
+        self.net = nn.ModuleList(net)
+        self.out_channels = in_channels + num_convs * out_channels # 计算输出通道数
+
+    def forward(self, X):
+        for blk in self.net:
+            Y = blk(X)
+            X = torch.cat((X, Y), dim=1)  # 在通道维上将输入和输出连结
+        return X
+
+    def conv_block(self, in_channels, out_channels):
+        blk = nn.Sequential(nn.BatchNorm2d(in_channels),
+                            nn.ReLU(),
+                            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1))
+        return blk
+
+
+class DenseNet():
+    def __init__(self):
+        net = nn.Sequential(
+                nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3),
+                nn.BatchNorm2d(64),
+                nn.ReLU(),
+                nn.MaxPool2d(kernel_size=3, stride=2, padding=1))
+        num_channels, growth_rate = 64, 32
+        num_convs_list = [4, 4, 4, 4]
+        for i, num_convs in enumerate(num_convs_list):
+            DB = DenseBlock(num_convs, num_channels, growth_rate)
+            net.add_module("DenseBlosk_%d" % i, DB)
+            # 上一个稠密块的输出通道数
+            num_channels = DB.out_channels
+            # 在稠密块之间加入通道数减半的过渡层
+            if i != len(num_convs_list) - 1:
+                net.add_module("transition_block_%d" % i, self.transition_block(num_channels, num_channels // 2))
+                num_channels = num_channels // 2
+        net.add_module("BN", nn.BatchNorm2d(num_channels))
+        net.add_module("relu", nn.ReLU())
+        net.add_module("global_avg_pool", GlobalAvgPool2d())  # GlobalAvgPool2d的输出: (Batch, num_channels, 1, 1)
+        net.add_module("fc", nn.Sequential(Flatten(), nn.Linear(num_channels, 10)))
+        self.net = net
+
+    def transition_block(self, in_channels, out_channels):
+        blk = nn.Sequential(
+                nn.BatchNorm2d(in_channels), 
+                nn.ReLU(),
+                nn.Conv2d(in_channels, out_channels, kernel_size=1),
+                nn.AvgPool2d(kernel_size=2, stride=2))
+        return blk
+
+
+def test_DenseNet(net=None):
+    logging.info('测试稠密快 ...')
+    blk = DenseBlock(2, 3, 10)
+    X = torch.rand(4, 3, 8, 8)
+    Y = blk(X)
+    logging.info(f'shape of Y: {Y.shape}')
+
+    logging.info('测试过渡层 ...')
+    blk = DenseNet().transition_block(23, 10)
+    Y = blk(Y)
+    logging.info(f'shape of Y: {Y.shape}')
+
+    if net:
+        logging.info('测试 DenseNet ...')
+        X = torch.rand((1, 1, 96, 96)).to(device)
+        for name, layer in net.named_children():
+            X = layer(X)
+            logging.info(f'{name} output shape:\t{X.shape}')
+
+
 if __name__ == '__main__':
     batch_size, lr = 256, 0.001
     dataset = Dataset(batch_size)
@@ -196,5 +270,11 @@ if __name__ == '__main__':
 
     logging.info('ResNet ...')
     resnet = ResNet().net.to(device)
-    optimizer = torch.optim.Adam(resnet.parameters(), lr=lr)
+    optimizer = optim.Adam(resnet.parameters(), lr=lr)
     train(resnet, dataset, criterion, optimizer)
+
+    logging.info('DenseNet ...')
+    # dataset = Dataset(batch_size, resize=96)
+    densenet = DenseNet().net.to(device)
+    optimizer = optim.Adam(densenet.parameters(), lr=lr)
+    train(densenet, dataset, criterion, optimizer)
