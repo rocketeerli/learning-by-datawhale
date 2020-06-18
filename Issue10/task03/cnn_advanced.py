@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import torchvision
 import logging
 from lenet import Flatten
-from cnn import train
+from cnn import train, GlobalAvgPool2d
 from data_fashion_mnist import Dataset
 
 logging.basicConfig(level=logging.INFO,
@@ -110,19 +110,91 @@ class LeNetBatchNormalization():
         )
 
 
-def lenet_bn_test(simple=True):
+def lenet_bn(lr, simple=True):
     lenet = LeNetBatchNormalization(simple=simple).net.to(device)
-    optimizer = torch.optim.Adam(lenet.parameters(), lr=0.001)
+    optimizer = torch.optim.Adam(lenet.parameters(), lr=lr)
     train(lenet, dataset, criterion, optimizer)
 
 
+class Residual(nn.Module):
+    ''' 残差块 '''
+    # 可以设定输出通道数、是否使用额外的1x1卷积层来修改通道数以及卷积层的步幅。
+    def __init__(self, in_channels, out_channels, use_1x1conv=False, stride=1):
+        super(Residual, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1, stride=stride)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
+        if use_1x1conv:
+            self.conv3 = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride)
+        else:
+            self.conv3 = None
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+
+    def forward(self, X):
+        Y = F.relu(self.bn1(self.conv1(X)))
+        Y = self.bn2(self.conv2(Y))
+        if self.conv3:
+            X = self.conv3(X)
+        return F.relu(Y + X)
+
+
+class ResNet():
+    def __init__(self):
+        self.net = nn.Sequential(
+            nn.Conv2d(1, 64, kernel_size=7, stride=7, padding=3),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        )
+        self.net.add_module("resnet_block1", self.resnet_block(64, 64, 2, first_block=True))
+        self.net.add_module("resnet_block2", self.resnet_block(64, 128, 2))
+        self.net.add_module("resnet_block3", self.resnet_block(128, 256, 2))
+        self.net.add_module("resnet_block4", self.resnet_block(256, 512, 2))
+        self.net.add_module("global_avg_pool", GlobalAvgPool2d())  # GlobalAvgPool2d的输出: (Batch, 512, 1, 1)
+        self.net.add_module("fc", nn.Sequential(Flatten(), nn.Linear(512, 10))) 
+
+    def resnet_block(self, in_channels, out_channels, num_residuals, first_block=False):
+        if first_block:
+            assert in_channels == out_channels  # 第一个模块的通道数同输入通道数一致
+        blk = []
+        for i in range(num_residuals):
+            if i == 0 and not first_block:
+                blk.append(Residual(in_channels, out_channels, use_1x1conv=True, stride=2))
+            else:
+                blk.append(Residual(out_channels, out_channels))
+        return nn.Sequential(*blk)
+
+
+def test_residual(net=None):
+    logging.info('通道和特征图大小不变')
+    blk = Residual(3, 3)
+    X = torch.rand((4, 3, 6, 6))
+    logging.info(blk(X).size())
+
+    logging.info('通道和特征图大小改变')
+    blk = Residual(3, 6, use_1x1conv=True, stride=2)
+    logging.info(blk(X).shape)
+
+    if net:
+        logging.info('测试网络 ...')
+        X = torch.rand((1, 1, 224, 224))
+        for name, layer in net.named_children():
+            X = layer(X)
+            logging.info(f'{name} output shape:\t{X.size()}')
+
+
 if __name__ == '__main__':
-    batch_size = 256
+    batch_size, lr = 256, 0.001
     dataset = Dataset(batch_size)
     criterion = nn.CrossEntropyLoss()
 
-    logging.info(f'BatchNormalization 从零开始实现 ...')
-    lenet_bn_test()
+    logging.info('BatchNormalization 从零开始实现 ...')
+    lenet_bn(lr)
 
-    logging.info(f'BatchNormalization 简洁实现 ...')
-    lenet_bn_test(simple=False)
+    logging.info('BatchNormalization 简洁实现 ...')
+    lenet_bn(lr, simple=False)
+
+    logging.info('ResNet ...')
+    resnet = ResNet().net.to(device)
+    optimizer = torch.optim.Adam(resnet.parameters(), lr=lr)
+    train(resnet, dataset, criterion, optimizer)
