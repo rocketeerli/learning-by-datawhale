@@ -28,3 +28,23 @@
 	from nltk import data
 	data.path.append('/home/kesci/input/nltk_data3784/nltk_data')
 	print(word_tokenize(text))
+
+### 语言模型
+
+语言模型的参数就是词的概率以及给定前几个词情况下的条件概率。
+
+* n 元语法
+
+随着序列长度增加，计算和存储多个词共同出现的概率的复杂度会呈指数级增加。
+
+n 元语法是通过马尔可夫假设简化模型。马尔科夫假设是指一个词的出现只与前面 n 个词相关，即 n 阶马尔可夫链（Markov chain of order n）。
+
+n 元语法（n-grams）是基于 n-1 阶马尔可夫链的概率语言模型。
+
+当 n 分别为1、2和3时，我们将其分别称作一元语法（unigram）、二元语法（bigram）和三元语法（trigram）。
+
+* n 元语法缺陷
+
+1. 参数空间过大
+
+2. 数据稀疏
