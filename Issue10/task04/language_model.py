@@ -8,37 +8,13 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s: %(message)s')
 
 
-def read_data(root='./data/jaychou', filename='jaychou_lyrics.txt'):
-    ''' 读取数据集 '''
-    with open(os.path.join(root, filename), 'r', encoding='utf-8') as f:
-        corpus_chars = f.read()
-    logging.info(len(corpus_chars))
-    logging.info(corpus_chars[: 40])
-    corpus_chars = corpus_chars.replace('\n', ' ').replace('\r', ' ')
-    corpus_chars = corpus_chars[: 10000]
-    return corpus_chars
-
-
-def create_index(corpus_chars):
-    ''' 建立索引 '''
-    idx_to_char = list(set(corpus_chars))
-    char_to_idx = {char: i for i, char in enumerate(idx_to_char)}
-    vocab_size = len(char_to_idx)
-    logging.info(f'size of vocab: {vocab_size}')
-    # 将每个字符转化为索引，得到一个索引的序列
-    corpus_indices = [char_to_idx[char] for char in corpus_chars]
-    # 测试
-    sample = corpus_indices[: 20]
-    logging.info(f'char: {"".join([idx_to_char[idx] for idx in sample])}')
-    logging.info(f'indices: {sample}')
-    return idx_to_char, char_to_idx, corpus_indices
-
-
 def load_data_jay_lyrics(root='./data/jaychou', filename='jaychou_lyrics.txt'):
+    # 读取数据
     with open(os.path.join(root, filename), 'r', encoding='utf-8') as f:
         corpus_chars = f.read()
     corpus_chars = corpus_chars.replace('\n', ' ').replace('\r', ' ')
     corpus_chars = corpus_chars[0:10000]
+    # 建立数据集字符索引
     idx_to_char = list(set(corpus_chars))
     char_to_idx = dict([(char, i) for i, char in enumerate(idx_to_char)])
     vocab_size = len(char_to_idx)
@@ -98,12 +74,8 @@ def test():
 
 
 if __name__ == '__main__':
-    # 读取数据集
-    corpus_chars = read_data()
-    # 建立字符索引
-    idx_to_char, char_to_idx, corpus_indices = create_index(corpus_chars)
-
-    logging.info(f'加载数据集，并建立数据集字符索引...')
+    logging.info('加载数据集，并建立数据集字符索引...')
     corpus_indices, char_to_idx, idx_to_char, vocab_size = load_data_jay_lyrics()
 
+    logging.info('测试采样方式...')
     test()
