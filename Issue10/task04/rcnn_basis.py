@@ -20,6 +20,10 @@ def one_hot(x, n_class, dtype=torch.float32):
     return result
 
 
+def to_onehot(X, n_class):
+    return [one_hot(X[:, i], n_class) for i in range(X.shape[1])]
+
+
 def get_params():
     ''' 初始化模型参数 '''
     def _one(shape):
@@ -39,7 +43,15 @@ def get_params():
 
 def rcnn(inputs, state, params):
     ''' 定义模型 '''
-    
+    # inputs 和 outputs 皆为 num_steps 个形状为 (batch_size, vocab_size) 的矩阵
+    W_xh, W_hh, b_h, W_hq, b_q = params
+    H, = state
+    outputs = []
+    for X in inputs:
+        H = torch.tanh(torch.matmul(X, W_xh) + torch.matmul(H, W_hh) + b_h)
+        Y = torch.matmul(H, W_hq) + b_q
+        outputs.append(Y)
+    return outputs, (H,)
 
 
 def test():
@@ -49,6 +61,10 @@ def test():
     logging.info(f'x one hot: {x_one_hot}')
     logging.info(f'shape of x one hot: {x_one_hot.shape}')
     logging.info(f'sum of x one hot: {x_one_hot.numpy().sum(axis=1)}')
+    X = torch.arange(10).view(2, 5)
+    inputs = to_onehot(X, vocab_size)
+    logging.info(f'length of inputs: {len(inputs)}')
+    logging.info(f'shape of inputs[0]: {inputs[0].shape}')
 
 
 if __name__ == '__main__':
