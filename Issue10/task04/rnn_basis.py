@@ -4,6 +4,7 @@ import torch.nn as nn
 import time
 import math
 from language_model import load_data_jay_lyrics
+from utils import sgd, data_iter_random, data_iter_consecutive
 import logging
 
 logging.basicConfig(level=logging.INFO,
@@ -75,6 +76,84 @@ def grad_clipping(params, theta, device):
             param.grad.data *= (theta / norm)
 
 
+def predict_rnn(prefix, num_chars, rnn, params, init_rnn_state,
+                num_hiddens, vocab_size, device, idx_to_char, char_to_idx):
+    ''' 基于前缀 prefix（含有数个字符的字符串）来预测接下来的 num_chars 个字符 '''
+    state = init_rnn_state(1, num_hiddens, device)
+    output = [char_to_idx[prefix[0]]]   # output记录prefix加上预测的num_chars个字符
+    for t in range(num_chars + len(prefix) - 1):
+        # 将上一时间步的输出作为当前时间步的输入
+        X = to_onehot(torch.tensor([[output[-1]]], device=device), vocab_size)
+        # 计算输出和更新隐藏状态
+        (Y, state) = rnn(X, state, params)
+        # 下一个时间步的输入是prefix里的字符或者当前的最佳预测字符
+        if t < len(prefix) - 1:
+            output.append(char_to_idx[prefix[t + 1]])
+        else:
+            output.append(Y[0].argmax(dim=1).item())
+    return ''.join([idx_to_char[i] for i in output])
+
+
+def train_and_predict_rnn(rnn, get_params, init_rnn_state, num_hiddens,
+                          vocab_size, device, corpus_indices, idx_to_char,
+                          char_to_idx, is_random_iter, num_epochs, num_steps,
+                          lr, clipping_theta, batch_size, pred_period,
+                          pred_len, prefixes):
+    ''' 跟之前章节的模型训练函数相比，这里的模型训练函数有以下几点不同：
+    1. 使用困惑度评价模型。
+    2. 在迭代模型参数前裁剪梯度。
+    3. 对时序数据采用不同采样方法将导致隐藏状态初始化的不同。
+    '''
+    if is_random_iter:
+        data_iter_fn = data_iter_random
+    else:
+        data_iter_fn = data_iter_consecutive
+    params = get_params()
+    loss = nn.CrossEntropyLoss()
+
+    for epoch in range(num_epochs):
+        if not is_random_iter:  # 如使用相邻采样，在epoch开始时初始化隐藏状态
+            state = init_rnn_state(batch_size, num_hiddens, device)
+        l_sum, n, start = 0.0, 0, time.time()
+        data_iter = data_iter_fn(corpus_indices, batch_size, num_steps, device)
+        for X, Y in data_iter:
+            if is_random_iter:  # 如使用随机采样，在每个小批量更新前初始化隐藏状态
+                state = init_rnn_state(batch_size, num_hiddens, device)
+            else:  # 否则需要使用detach函数从计算图分离隐藏状态
+                for s in state:
+                    s.detach_()
+            # inputs是num_steps个形状为(batch_size, vocab_size)的矩阵
+            inputs = to_onehot(X, vocab_size)
+            # outputs有num_steps个形状为(batch_size, vocab_size)的矩阵
+            (outputs, state) = rnn(inputs, state, params)
+            logging.info(f'type of outputs: {type(outputs)}')
+            # 拼接之后形状为(num_steps * batch_size, vocab_size)
+            outputs = torch.cat(outputs, dim=0)
+            # Y的形状是(batch_size, num_steps)，转置后再变成形状为
+            # (num_steps * batch_size,)的向量，这样跟输出的行一一对应
+            y = torch.flatten(Y.t())
+            logging.info(f'shape of Y:{Y.shape} \t shape of y: {y.shape}')
+            # 使用交叉熵损失计算平均分类误差
+            l = loss(outputs, y.long())
+
+            # 梯度清0
+            if params[0].grad is not None:
+                for param in params:
+                    param.grad.data.zero_()
+            l.backward()
+            grad_clipping(params, clipping_theta, device)  # 裁剪梯度
+            sgd(params, lr, 1)  # 因为误差已经取过均值，梯度不用再做平均
+            l_sum += l.item() * y.shape[0]
+            n += y.shape[0]
+
+        if (epoch + 1) % pred_period == 0:
+            print('epoch %d, perplexity %f, time %.2f sec' % (
+                epoch + 1, math.exp(l_sum / n), time.time() - start))
+            for prefix in prefixes:
+                print(' -', predict_rnn(prefix, pred_len, rnn, params, init_rnn_state,
+                    num_hiddens, vocab_size, device, idx_to_char, char_to_idx))
+
+
 def test():
     logging.info('测试 one hot 编码...')
     x = torch.tensor([0, 2])
@@ -100,6 +179,16 @@ def test():
     logging.info(f'state init length: {len(state_init)} \t shape: {state_init[0].shape}')
     logging.info(f'state new length: {len(state_new)} \t shape: {state_new[0].shape}')
 
+    logging.info('测试 predict_rnn() 函数...')
+    predict_sentence = predict_rnn('分开', 10, rnn, params, init_rnn_state,
+                    num_hiddens, vocab_size, device, idx_to_char, char_to_idx)
+    logging.info(f'测试结果: {predict_sentence}')
+
+    logging.info('测试 torch.cat() ...')
+    X = [torch.arange(i, i + 9).view(3, 3) for i in range(0, 36, 9)]
+    logging.info(f'X: {X} \t type X: {type(X)}')
+    logging.info(f'X after: {torch.cat(X, dim=0)}')
+
 
 if __name__ == '__main__':
     # 加载数据集
@@ -109,4 +198,13 @@ if __name__ == '__main__':
     num_inputs, num_hiddens, num_outputs = vocab_size, 256, vocab_size
 
     # 测试
-    test()
+    # test()
+
+    logging.info('从零开始实现 RNN ...')
+    num_epochs, num_steps, batch_size, lr, clipping_theta = 250, 35, 32, 1e2, 1e-2
+    pred_period, pred_len, prefixes = 50, 50, ['分开', '不分开']
+    train_and_predict_rnn(rnn, get_params, init_rnn_state, num_hiddens,
+                      vocab_size, device, corpus_indices, idx_to_char,
+                      char_to_idx, True, num_epochs, num_steps, lr,
+                      clipping_theta, batch_size, pred_period, pred_len,
+                      prefixes)
