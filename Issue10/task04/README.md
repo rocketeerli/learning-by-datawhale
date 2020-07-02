@@ -92,3 +92,11 @@ n 元语法（n-grams）是基于 n-1 阶马尔可夫链的概率语言模型。
 perplexity(困惑度)用来度量一个概率分布或概率模型预测样本的好坏程度。
 
 在自然语言处理中，困惑度是用来衡量语言概率模型优劣的一个方法。句子正常的概率越大，语言模型越好，迷惑度越小。
+
+* nn.RNN的以下几个构造函数参数：
+
+input_size: 输入变量的维度。通常用一个向量来表示一个单词，input_size 表示单词的。
+hidden_size: 隐藏层的维度。可以看做是隐含层中，隐含节点的个数。
+num_layers：网络的层数，默认为1层。
+nonlinearity: 非线性激活函数，默认是tanh，也可以选择relu等。
+batch_first: 决定了输入的形状。这里使用默认的参数False，对应的输入形状是 (num_steps, batch_size, input_size)。
