@@ -1,10 +1,9 @@
 # -*- coding:utf-8 -*-
 import numpy as np
 import torch
-from torch import nn, optim
-import torch.nn.functional as F
+from torch import nn
 import logging
-from utils import train_and_predict_rnn, load_data_jay_lyrics
+from utils import load_data_jay_lyrics, RNNModel, train_and_predict_rnn, train_and_predict_rnn_pytorch
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s: %(message)s')
@@ -50,6 +49,7 @@ def gru(inputs, state, params):
 
 
 def train_gru():
+    logging.info('GRU original ...')
     num_epochs, num_steps, batch_size, lr, clipping_theta = 160, 35, 32, 1e2, 1e-2
     pred_period, pred_len, prefixes = 40, 50, ['分开', '不分开']
     train_and_predict_rnn(gru, get_params, init_gru_state, num_hiddens,
@@ -57,6 +57,15 @@ def train_gru():
                           char_to_idx, False, num_epochs, num_steps, lr,
                           clipping_theta, batch_size, pred_period, pred_len,
                           prefixes)
+
+    logging.info('GRU with PyTorch ...')
+    lr = 1e-2  # 注意调整学习率
+    gru_layer = nn.GRU(input_size=vocab_size, hidden_size=num_hiddens)
+    model = RNNModel(gru_layer, vocab_size).to(device)
+    train_and_predict_rnn_pytorch(model, num_hiddens, vocab_size, device,
+                                  corpus_indices, idx_to_char, char_to_idx,
+                                  num_epochs, num_steps, lr, clipping_theta,
+                                  batch_size, pred_period, pred_len, prefixes)
 
 
 if __name__ == '__main__':
