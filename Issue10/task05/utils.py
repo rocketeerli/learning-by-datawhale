@@ -1,0 +1,190 @@
+# -*- coding:utf-8 -*-
+import torch
+import torch.nn as nn
+import random
+import os
+import time
+import math
+
+
+def load_data_jay_lyrics(root='./data/jaychou', filename='jaychou_lyrics.txt'):
+    # 读取数据
+    with open(os.path.join(root, filename), 'r', encoding='utf-8') as f:
+        corpus_chars = f.read()
+    corpus_chars = corpus_chars.replace('\n', ' ').replace('\r', ' ')
+    corpus_chars = corpus_chars[0:10000]
+    # 建立数据集字符索引
+    idx_to_char = list(set(corpus_chars))
+    char_to_idx = dict([(char, i) for i, char in enumerate(idx_to_char)])
+    vocab_size = len(char_to_idx)
+    corpus_indices = [char_to_idx[char] for char in corpus_chars]
+    return corpus_indices, char_to_idx, idx_to_char, vocab_size
+
+
+def train_and_predict_rnn(rnn, get_params, init_rnn_state, num_hiddens,
+                          vocab_size, device, corpus_indices, idx_to_char,
+                          char_to_idx, is_random_iter, num_epochs, num_steps,
+                          lr, clipping_theta, batch_size, pred_period,
+                          pred_len, prefixes):
+    ''' 跟之前章节的模型训练函数相比，这里的模型训练函数有以下几点不同：
+    1. 使用困惑度评价模型。
+    2. 在迭代模型参数前裁剪梯度。
+    3. 对时序数据采用不同采样方法将导致隐藏状态初始化的不同。
+    :param rnn: RNN 模型
+    :param get_params: RNN 参数的初始化函数
+    :param init_rnn_state: 初始化 RNN 的隐藏状态函数
+    :param num_hiddens: 隐藏层的维度
+    :param vocab_size: 输入数据和输出数据的维度
+    :param device: 决定在 cpu 上运行或是在 gpu 上运行
+    :param corpus_indices: 序列数据集(索引形式)
+    :param idx_to_char: 索引转字符
+    :param char_to_idx: 字符转索引
+    :param is_random_iter: 是否对数据集进行随机采样
+    :param num_epochs: epoch 数目
+    :param num_steps: RNN 的时步数
+    :param lr: 学习率
+    :parma clipping_theta: 梯度截断的阈值
+    :param batch_size: batch 的大小
+    :param pred_period: 训练时，每 pred_period 个 epoch 输出一次模型预测值
+    :parma pred_len: 预测字符的长度
+    :param prefixes: 预测字符的前缀
+    '''
+    if is_random_iter:
+        data_iter_fn = data_iter_random
+    else:
+        data_iter_fn = data_iter_consecutive
+    params = get_params()
+    loss = nn.CrossEntropyLoss()
+
+    for epoch in range(num_epochs):
+        if not is_random_iter:  # 如使用相邻采样，在epoch开始时初始化隐藏状态
+            state = init_rnn_state(batch_size, num_hiddens, device)
+        l_sum, n, start = 0.0, 0, time.time()
+        data_iter = data_iter_fn(corpus_indices, batch_size, num_steps, device)
+        for X, Y in data_iter:
+            if is_random_iter:  # 如使用随机采样，在每个小批量更新前初始化隐藏状态
+                state = init_rnn_state(batch_size, num_hiddens, device)
+            else:  # 否则需要使用detach函数从计算图分离隐藏状态
+                for s in state:
+                    s.detach_()
+            # inputs是num_steps个形状为(batch_size, vocab_size)的矩阵
+            inputs = to_onehot(X, vocab_size)
+            # outputs有num_steps个形状为(batch_size, vocab_size)的矩阵
+            (outputs, state) = rnn(inputs, state, params)
+            # 拼接之后形状为(num_steps * batch_size, vocab_size)
+            outputs = torch.cat(outputs, dim=0)
+            # Y的形状是(batch_size, num_steps)，转置后再变成形状为
+            # (num_steps * batch_size,)的向量，这样跟输出的行一一对应
+            y = torch.flatten(Y.t())
+            # 使用交叉熵损失计算平均分类误差
+            l = loss(outputs, y.long())
+
+            # 梯度清0
+            if params[0].grad is not None:
+                for param in params:
+                    param.grad.data.zero_()
+            l.backward()
+            grad_clipping(params, clipping_theta, device)  # 裁剪梯度
+            sgd(params, lr, 1)  # 因为误差已经取过均值，梯度不用再做平均
+            l_sum += l.item() * y.shape[0]
+            n += y.shape[0]
+
+        if (epoch + 1) % pred_period == 0:
+            print('epoch %d, perplexity %f, time %.2f sec' % (
+                epoch + 1, math.exp(l_sum / n), time.time() - start))
+            for prefix in prefixes:
+                print(' -', predict_rnn(prefix, pred_len, rnn, params,
+                      init_rnn_state, num_hiddens, vocab_size, device,
+                      idx_to_char, char_to_idx))
+
+
+def predict_rnn(prefix, num_chars, rnn, params, init_rnn_state,
+                num_hiddens, vocab_size, device, idx_to_char, char_to_idx):
+    ''' 基于前缀 prefix（含有数个字符的字符串）来预测接下来的 num_chars 个字符 '''
+    state = init_rnn_state(1, num_hiddens, device)
+    output = [char_to_idx[prefix[0]]]   # output记录prefix加上预测的num_chars个字符
+    for t in range(num_chars + len(prefix) - 1):
+        # 将上一时间步的输出作为当前时间步的输入
+        X = to_onehot(torch.tensor([[output[-1]]], device=device), vocab_size)
+        # 计算输出和更新隐藏状态
+        (Y, state) = rnn(X, state, params)
+        # 下一个时间步的输入是prefix里的字符或者当前的最佳预测字符
+        if t < len(prefix) - 1:
+            output.append(char_to_idx[prefix[t + 1]])
+        else:
+            output.append(Y[0].argmax(dim=1).item())
+    return ''.join([idx_to_char[i] for i in output])
+
+
+def sgd(params, lr, batch_size):
+    # 为了和原书保持一致，这里除以了batch_size，但是应该是不用除的，因为一般用PyTorch计算loss时就默认已经
+    # 沿batch维求了平均了。
+    for param in params:
+        param.data -= lr * param.grad / batch_size # 注意这里更改param时用的param.data
+
+
+def data_iter_random(corpus_indices, batch_size, num_steps, device=None):
+    # 减1是因为输出的索引x是相应输入的索引 y 加 1
+    num_examples = (len(corpus_indices) - 1) // num_steps
+    epoch_size = num_examples // batch_size
+    example_indices = list(range(num_examples))
+    random.shuffle(example_indices)
+
+    # 返回从 pos 开始的长为num_steps的序列
+    def _data(pos):
+        return corpus_indices[pos: pos + num_steps]
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    for i in range(epoch_size):
+        # 每次读取batch_size个随机样本
+        i = i * batch_size
+        batch_indices = example_indices[i: i + batch_size]
+        X = [_data(j * num_steps) for j in batch_indices]
+        Y = [_data(j * num_steps + 1) for j in batch_indices]
+        yield torch.tensor(X, dtype=torch.float32, device=device), torch.tensor(Y, dtype=torch.float32, device=device)
+
+
+def data_iter_consecutive(corpus_indices, batch_size, num_steps, device=None):
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    corpus_indices = torch.tensor(corpus_indices, dtype=torch.float32, device=device)
+    data_len = len(corpus_indices)
+    batch_len = data_len // batch_size
+    indices = corpus_indices[0: batch_size*batch_len].view(batch_size, batch_len)
+    epoch_size = (batch_len - 1) // num_steps
+    for i in range(epoch_size):
+        i = i * num_steps
+        X = indices[:, i: i + num_steps]
+        Y = indices[:, i + 1: i + num_steps + 1]
+        yield X, Y
+
+
+def one_hot(x, n_class, dtype=torch.float32):
+    '''one hot 编码
+    :param x: 一个时序序列（索引方式）
+    :param n_class: 索引类别的数目
+    '''
+    result = torch.zeros(x.shape[0], n_class, dtype=dtype, device=x.device)
+    result.scatter_(1, x.long().view(-1, 1), 1)  # result[i, x[i, 0]] = 1
+    return result
+
+
+def to_onehot(X, n_class):
+    '''
+    :param X: (batch_size, timestep)
+    :param n_class: one hot 编码维度
+    :return: (timestep, batch_size, n_class)
+    '''
+    return [one_hot(X[:, i], n_class) for i in range(X.shape[1])]
+
+
+def grad_clipping(params, theta, device):
+    ''' 梯度裁剪 '''
+    norm = torch.tensor([0.0], device=device)
+    for param in params:
+        norm += (param.grad.data ** 2).sum()
+    norm = norm.sqrt().item()
+    if norm > theta:
+        for param in params:
+            param.grad.data *= (theta / norm)
