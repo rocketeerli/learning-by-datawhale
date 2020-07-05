@@ -64,3 +64,9 @@ encoder-decoder模型虽然非常经典，但是局限性也非常大。最大�
 pytorch中的transpose方法的作用是交换矩阵的两个维度，transpose(dim0, dim1) → Tensor
 
 transpose 中的两个维度参数的顺序是可以交换位置的，即transpose（x, 0, 1,) 和transpose（x, 1, 0）效果是相同的。
+
+* [:,None]
+
+None表示该维不进行切片，而是将该维整体作为数组元素处理。
+
+所以，[:,None] 的效果就是将二维数组按每行分割，最后形成一个三维数组。
