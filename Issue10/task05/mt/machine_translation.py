@@ -65,12 +65,14 @@ def load_data_nmt(batch_size, max_len):
 
 
 if __name__ == '__main__':
+    logging.info('读取数据文件...')
     with open('./data/fraeng3479/fra.txt', 'r', encoding='utf-8') as f:
         raw_text = f.read()
     logging.info(raw_text[0:1000])
     text = preprocess_raw(raw_text)
     logging.info(text[0:1000])
 
+    logging.info('分词...')
     num_examples = 50000
     source, target = [], []
     for i, line in enumerate(text.split('\n')):

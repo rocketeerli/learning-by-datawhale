@@ -40,3 +40,27 @@ GRU 很聪明的一点就在于，我们使用了同一个门控，就同时可�
 1. 输出是单词序列而不是单个单词。
 
 2. 输出序列的长度可能与源序列的长度不同。
+
+### Encoder-Decoder
+
+* encoder：输入到隐藏状态
+
+* decoder：隐藏状态到输出
+
+Encoder-Decoder并不是一个具体的模型，而是一类框架。Encoder和Decoder部分可以是任意的文字，语音，图像，视频数据，模型可以采用CNN，RNN，BiRNN、LSTM、GRU等等。
+
+encoder-decoder模型虽然非常经典，但是局限性也非常大。最大的局限性就在于编码和解码之间的唯一联系就是一个固定长度的语义向量C。
+
+可以应用在对话系统、生成式任务中。
+
+### Sequence to Sequence 模型
+
+* torch.nn.Embedding
+
+一个简单的存储固定大小的词典的嵌入向量的查找表。默认随机赋值，也可以手动加载权重。
+
+* torch.transpose()
+
+pytorch中的transpose方法的作用是交换矩阵的两个维度，transpose(dim0, dim1) → Tensor
+
+transpose 中的两个维度参数的顺序是可以交换位置的，即transpose（x, 0, 1,) 和transpose（x, 1, 0）效果是相同的。
