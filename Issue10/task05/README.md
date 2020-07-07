@@ -85,6 +85,14 @@ None表示该维不进行切片，而是将该维整体作为数组元素处理�
 
 X 和 Y 是维度分别为 (b, n, m) 和 (b, m, k) 的张量，进行 b 次二维矩阵乘法后得到 Z, Z 的维度为 (b, n, k)。
 
+### attention layer
+
+Attention 是一种通用的带权池化方法，输入由两部分构成：询问（query）和键值对（key-value pairs）。
+
+key 和 value 的数目相同，维度不一定相同。query 和 key-value 维度和数目都不一定相同。
+
+attention layer 得到输出与 value 的维度一致。输出数目与 query 数目一致。
+
 ### 点积注意力(The dot product)
 
 假设 query 和 keys 有相同的维度，可以通过计算 query 和 key 转置的乘积来计算 attention score。

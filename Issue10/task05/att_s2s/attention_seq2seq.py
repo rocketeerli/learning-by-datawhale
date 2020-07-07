@@ -59,6 +59,30 @@ class DotProductAttention(nn.Module):
         return torch.bmm(attention_weights, value)
 
 
+class MLPAttention(nn.Module):
+    def __init__(self, units, ipt_dim, dropout, **kwargs):
+        super(MLPAttention, self).__init__(**kwargs)
+        # Use flatten=True to keep query's and key's 3-D shapes.
+        self.W_k = nn.Linear(ipt_dim, units, bias=False)
+        self.W_q = nn.Linear(ipt_dim, units, bias=False)
+        self.v = nn.Linear(units, 1, bias=False)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, query, key, value, valid_length):
+        query, key = self.W_k(query), self.W_q(key)  # q 和 k 映射到相同的维度
+        # print("size: ", query.size(), key.size())
+        # expand query to (batch_size, #querys, 1, units), and key to
+        # (batch_size, 1, #kv_pairs, units). Then plus them with broadcast.
+        features = query.unsqueeze(2) + key.unsqueeze(1)  # 将 q 和 k 做加法
+        # print("features:", features.size())  # (batch_size, #querys, #kv_pairs, units)
+        scores = self.v(features).squeeze(-1)  # 转换成 1 维
+        # print('v featrues: ', self.v(features))  # (batch_size, #querys, #kv_pairs, 1)
+        # print('scores: ', scores)  # (batch_size, #querys, #kv_pairs)
+        attention_weights = self.dropout(masked_softmax(scores, valid_length))  # 做 softmax 屏蔽
+        # print('attention_weights: ', attention_weights)
+        return torch.bmm(attention_weights, value)
+
+
 def test():
     logging.info('softmax 屏蔽 ...')
     mas_sof = masked_softmax(torch.rand((2, 2, 4), dtype=torch.float),
@@ -72,6 +96,12 @@ def test():
     dot_att = atten(torch.ones((2, 1, 2), dtype=torch.float), keys, values,
                     torch.FloatTensor([2, 6]))
     logging.info(f'dot attention output: {dot_att}')
+
+    logging.info('多层感知机注意力 ...')
+    atten = MLPAttention(ipt_dim=2, units=8, dropout=0)
+    mlp_att = atten(torch.ones((2, 1, 2), dtype=torch.float), keys, values,
+                    torch.FloatTensor([2, 6]))
+    logging.info(f'mlp attention output: {mlp_att}')
 
 
 if __name__ == '__main__':
