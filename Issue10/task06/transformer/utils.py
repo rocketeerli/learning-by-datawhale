@@ -2,6 +2,7 @@
 import math
 import torch
 from torch import nn
+import matplotlib.pyplot as plt
 
 
 def SequenceMask(X, X_len, value=-1e6):
@@ -55,3 +56,46 @@ class DotProductAttention(nn.Module):
         attention_weights = self.dropout(masked_softmax(scores, valid_length))
         # print("attention_weight\n", attention_weights)
         return torch.bmm(attention_weights, value)
+
+
+def set_figsize(figsize=(3.5, 2.5)):
+    """Set matplotlib figure size."""
+    # use_svg_display()
+    plt.rcParams['figure.figsize'] = figsize
+
+
+def plot(X, Y=None, xlabel=None, ylabel=None, legend=[], xlim=None,
+         ylim=None, xscale='linear', yscale='linear', fmts=None,
+         figsize=(3.5, 2.5), axes=None):
+    """Plot multiple lines"""
+    set_figsize(figsize)
+    axes = axes if axes else plt.gca()
+    #if isinstance(X, nd.NDArray): X = X.asnumpy()
+    #if isinstance(Y, nd.NDArray): Y = Y.asnumpy()
+    if not hasattr(X[0], "__len__"): X = [X]
+    if Y is None: X, Y = [[]]*len(X), X
+    if not hasattr(Y[0], "__len__"): Y = [Y]
+    if len(X) != len(Y): X = X * len(Y)
+    if not fmts: fmts = ['-']*len(X)
+    axes.cla()
+    for x, y, fmt in zip(X, Y, fmts):
+        #if isinstance(x, nd.NDArray): x = x.asnumpy()
+        #if isinstance(y, nd.NDArray): y = y.asnumpy()
+        if len(x):
+            axes.plot(x, y, fmt)
+        else:
+            axes.plot(y, fmt)
+    set_axes(axes, xlabel, ylabel, xlim, ylim, xscale, yscale, legend)
+    plt.show()
+
+
+def set_axes(axes, xlabel, ylabel, xlim, ylim, xscale, yscale, legend):
+    """A utility function to set matplotlib axes"""
+    axes.set_xlabel(xlabel)
+    axes.set_ylabel(ylabel)
+    axes.set_xscale(xscale)
+    axes.set_yscale(yscale)
+    axes.set_xlim(xlim)
+    axes.set_ylim(ylim)
+    if legend: axes.legend(legend)
+    axes.grid()
