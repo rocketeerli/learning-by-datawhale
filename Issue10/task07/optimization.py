@@ -2,10 +2,11 @@
 import numpy as np
 import torch
 from torch import nn
-import matplotlib.pyplot as plt
 from torch.utils.data import TensorDataset
-import logging
+import matplotlib.pyplot as plt
 import time
+import math
+import logging
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(levelname)s: %(message)s')
@@ -154,9 +155,52 @@ def test_momentum():
     plt.show()
 
 
+def test_AdaGrad():
+    logging.info('体验 AdaGrad ...')
+    eta = 2
+
+    def adagrad_2d(x1, x2, s1, s2):
+        g1, g2, eps = 0.2 * x1, 4 * x2, 1e-6  # 前两项为自变量梯度
+        s1 += g1 ** 2
+        s2 += g2 ** 2
+        x1 -= eta / math.sqrt(s1 + eps) * g1
+        x2 -= eta / math.sqrt(s2 + eps) * g2
+        return x1, x2, s1, s2
+
+    def f_2d(x1, x2):
+        return 0.1 * x1 ** 2 + 2 * x2 ** 2
+
+    show_trace_2d(f_2d, train_2d(adagrad_2d))
+    plt.show()
+
+    logging.info('AdaGrad Implement ...')
+    features, labels = get_data_ch7()
+
+    def init_adagrad_states():
+        s_w = torch.zeros((features.shape[1], 1), dtype=torch.float32)
+        s_b = torch.zeros(1, dtype=torch.float32)
+        return (s_w, s_b)
+
+    def adagrad(params, states, hyperparams):
+        eps = 1e-6
+        for p, s in zip(params, states):
+            s.data += (p.grad.data**2)
+            p.data -= hyperparams['lr'] * p.grad.data / torch.sqrt(s + eps)
+
+    train_ch7(adagrad, init_adagrad_states(), {'lr': 0.1}, features, labels)
+    plt.show()
+
+    logging.info('AdaGrad PyTorch ...')
+    train_pytorch_ch7(torch.optim.Adagrad, {'lr': 0.1}, features, labels)
+    plt.show()
+
+
 def test():
     logging.info('带动量的小批量梯度下降 ...')
-    test_momentum()
+    # test_momentum()
+
+    logging.info('AdaGrad ...')
+    test_AdaGrad()
 
 
 if __name__ == '__main__':
