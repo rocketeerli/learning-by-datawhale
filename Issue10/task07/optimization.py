@@ -229,15 +229,41 @@ def test_RMSProp():
     plt.show()
 
 
+def test_AdaDelta():
+    logging.info('AdaDelta Implement ...')
+
+    def init_adadelta_states():
+        s_w, s_b = torch.zeros((features.shape[1], 1), dtype=torch.float32), torch.zeros(1, dtype=torch.float32)
+        delta_w, delta_b = torch.zeros((features.shape[1], 1), dtype=torch.float32), torch.zeros(1, dtype=torch.float32)
+        return ((s_w, delta_w), (s_b, delta_b))
+
+    def adadelta(params, states, hyperparams):
+        rho, eps = hyperparams['rho'], 1e-5
+        for p, (s, delta) in zip(params, states):
+            s[:] = rho * s + (1 - rho) * (p.grad.data**2)
+            g = p.grad.data * torch.sqrt((delta + eps) / (s + eps))
+            p.data -= g
+            delta[:] = rho * delta + (1 - rho) * g * g
+    train_ch7(adadelta, init_adadelta_states(), {'rho': 0.9}, features, labels)
+    plt.show()
+
+    logging.info('AdaDelta with PyTorch ...')
+    train_pytorch_ch7(torch.optim.Adadelta, {'rho': 0.9}, features, labels)
+    plt.show()
+
+
 def test():
     logging.info('带动量的小批量梯度下降 ...')
-    test_momentum()
+    # test_momentum()
 
-    logging.info('AdaGrad ...')
-    test_AdaGrad()
+    # logging.info('AdaGrad ...')
+    # test_AdaGrad()
 
-    logging.info('RMSProp ...')
-    test_RMSProp()
+    # logging.info('RMSProp ...')
+    # test_RMSProp()
+
+    logging.info('AdaDelta ...')
+    test_AdaDelta()
 
 
 if __name__ == '__main__':
