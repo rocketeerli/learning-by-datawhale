@@ -3,6 +3,7 @@ import torch
 from torch import nn
 import time
 import torch.nn.functional as F
+import matplotlib.pyplot as plt
 
 
 def evaluate_accuracy(data_iter, net, device=None):
@@ -109,3 +110,14 @@ class FlattenLayer(torch.nn.Module):
         super(FlattenLayer, self).__init__()
     def forward(self, x): # x shape: (batch, *, *, ...)
         return x.view(x.shape[0], -1)
+
+
+def show_images(imgs, num_rows, num_cols, scale=2):
+    figsize = (num_cols * scale, num_rows * scale)
+    _, axes = plt.subplots(num_rows, num_cols, figsize=figsize)
+    for i in range(num_rows):
+        for j in range(num_cols):
+            axes[i][j].imshow(imgs[i * num_cols + j])
+            axes[i][j].axes.get_xaxis().set_visible(False)
+            axes[i][j].axes.get_yaxis().set_visible(False)
+    return axes
