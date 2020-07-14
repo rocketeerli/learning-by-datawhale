@@ -252,18 +252,46 @@ def test_AdaDelta():
     plt.show()
 
 
+def test_Adam():
+    logging.info('Adam Implement ...')
+
+    def init_adam_states():
+        v_w, v_b = torch.zeros((features.shape[1], 1), dtype=torch.float32), torch.zeros(1, dtype=torch.float32)
+        s_w, s_b = torch.zeros((features.shape[1], 1), dtype=torch.float32), torch.zeros(1, dtype=torch.float32)
+        return ((v_w, s_w), (v_b, s_b))
+
+    def adam(params, states, hyperparams):
+        beta1, beta2, eps = 0.9, 0.999, 1e-6
+        for p, (v, s) in zip(params, states):
+            v[:] = beta1 * v + (1 - beta1) * p.grad.data
+            s[:] = beta2 * s + (1 - beta2) * p.grad.data**2
+            v_bias_corr = v / (1 - beta1 ** hyperparams['t'])
+            s_bias_corr = s / (1 - beta2 ** hyperparams['t'])
+            p.data -= hyperparams['lr'] * v_bias_corr / (torch.sqrt(s_bias_corr) + eps)
+        hyperparams['t'] += 1
+    train_ch7(adam, init_adam_states(), {'lr': 0.01, 't': 1}, features, labels)
+    plt.show()
+
+    logging.info('Adam with PyTorch ...')
+    train_pytorch_ch7(torch.optim.Adam, {'lr': 0.01}, features, labels)
+    plt.show()
+
+
 def test():
     logging.info('带动量的小批量梯度下降 ...')
-    # test_momentum()
+    test_momentum()
 
-    # logging.info('AdaGrad ...')
-    # test_AdaGrad()
+    logging.info('AdaGrad ...')
+    test_AdaGrad()
 
-    # logging.info('RMSProp ...')
-    # test_RMSProp()
+    logging.info('RMSProp ...')
+    test_RMSProp()
 
     logging.info('AdaDelta ...')
     test_AdaDelta()
+
+    logging.info('Adam ...')
+    test_Adam()
 
 
 if __name__ == '__main__':
