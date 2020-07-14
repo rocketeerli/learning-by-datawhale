@@ -108,12 +108,13 @@ def train_pytorch_ch7(optimizer_fn, optimizer_hyperparams, features, labels,
     plt.ylabel('loss')
 
 
+def f_2d(x1, x2):
+    return 0.1 * x1 ** 2 + 2 * x2 ** 2
+
+
 def test_momentum():
     logging.info('test momentum ...')
     eta = 0.6
-
-    def f_2d(x1, x2):
-        return 0.1 * x1 ** 2 + 2 * x2 ** 2
 
     def gd_2d(x1, x2, s1, s2):
         return (x1 - eta * 0.2 * x1, x2 - eta * 4 * x2, 0, 0)
@@ -133,7 +134,6 @@ def test_momentum():
     # plt.show()
 
     logging.info('动量方法做训练 手动实现 ...')
-    features, labels = get_data_ch7()
 
     def init_momentum_states():
         v_w = torch.zeros((features.shape[1], 1), dtype=torch.float32)
@@ -167,9 +167,6 @@ def test_AdaGrad():
         x2 -= eta / math.sqrt(s2 + eps) * g2
         return x1, x2, s1, s2
 
-    def f_2d(x1, x2):
-        return 0.1 * x1 ** 2 + 2 * x2 ** 2
-
     show_trace_2d(f_2d, train_2d(adagrad_2d))
     plt.show()
 
@@ -195,13 +192,54 @@ def test_AdaGrad():
     plt.show()
 
 
+def test_RMSProp():
+    logging.info('体验 RMSProp ...')
+    alpha, beta = 0.4, 0.9
+
+    def rmsprop_2d(x1, x2, s1, s2):
+        g1, g2, eps = 0.2 * x1, 4 * x2, 1e-6
+        s1 = beta * s1 + (1 - beta) * g1 ** 2
+        s2 = beta * s2 + (1 - beta) * g2 ** 2
+        x1 -= alpha / math.sqrt(s1 + eps) * g1
+        x2 -= alpha / math.sqrt(s2 + eps) * g2
+        return x1, x2, s1, s2
+
+    show_trace_2d(f_2d, train_2d(rmsprop_2d))
+    plt.show()
+
+    logging.info('RMSProp Implement ...')
+
+    def init_rmsprop_states():
+        s_w = torch.zeros((features.shape[1], 1), dtype=torch.float32)
+        s_b = torch.zeros(1, dtype=torch.float32)
+        return (s_w, s_b)
+
+    def rmsprop(params, states, hyperparams):
+        gamma, eps = hyperparams['beta'], 1e-6
+        for p, s in zip(params, states):
+            s.data = gamma * s.data + (1 - gamma) * (p.grad.data)**2
+            p.data -= hyperparams['lr'] * p.grad.data / torch.sqrt(s + eps)
+    train_ch7(rmsprop, init_rmsprop_states(), {'lr': 0.01, 'beta': 0.9},
+              features, labels)
+    plt.show()
+
+    logging.info('RMSProp wih PyTorch ...')
+    train_pytorch_ch7(torch.optim.RMSprop, {'lr': 0.01, 'alpha': 0.9},
+                      features, labels)
+    plt.show()
+
+
 def test():
     logging.info('带动量的小批量梯度下降 ...')
-    # test_momentum()
+    test_momentum()
 
     logging.info('AdaGrad ...')
     test_AdaGrad()
 
+    logging.info('RMSProp ...')
+    test_RMSProp()
+
 
 if __name__ == '__main__':
+    features, labels = get_data_ch7()
     test()
