@@ -49,3 +49,39 @@ Adam 算法使用了动量变量 m 和 RMSProp 算法中小批量随机梯度按
 这里需要除以一个系数，从而使过去各时间步小批量随机梯度权值之和为 1。
 
 和AdaGrad算法、RMSProp算法以及AdaDelta算法一样，目标函数自变量中每个元素都分别拥有自己的学习率。
+
+## 数据增强
+
+大规模数据集是成功应用深度神经网络的前提。
+
+图像增广（image augmentation）技术通过对训练图像做一系列随机改变，来产生相似但又不同的训练样本，从而扩大训练数据集的规模。
+
+另一种解释是，随机改变训练样本可以降低模型对某些属性的依赖，从而提高模型的泛化能力。
+
+### 常用的数据曾广的方法
+
+1. 翻转
+
+上下翻转不如左右翻转通用。
+
+可以通过 torchvision.transforms 模块创建 RandomHorizontalFlip 实例来实现一半概率的图像水平（左右）翻转。
+
+垂直（上下）翻转是 torchvision.transforms.RandomVerticalFlip
+
+2. 裁剪
+
+池化层能降低卷积层对目标位置的敏感度。
+
+除此之外，我们还可以通过对图像随机裁剪来让物体以不同的比例出现在图像的不同位置，这同样能够降低模型对目标位置的敏感性。
+
+使用 `torchvision.transforms.RandomResizedCrop` 进行随机裁剪。
+
+3. 变化颜色
+
+使用 `torchvision.transforms.ColorJitter` 变化图像的亮度（brightness）、对比度（contrast）、饱和度（saturation）和色调（hue）等。
+
+4. 叠加多个图像增广方法
+
+
+
+可以通过 Compose 实例将上面定义的多个图像增广方法叠加起来，再应用到每张图像之上。
