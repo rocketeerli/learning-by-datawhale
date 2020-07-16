@@ -72,11 +72,40 @@ def test_anchors(img):
     plt.show()
 
 
+def display_anchors(fmap_w, fmap_h, s):
+    # 前两维的取值不影响输出结果(原书这里是(1, 10, fmap_w, fmap_h), 我认为错了)
+    fmap = torch.zeros((1, 10, fmap_h, fmap_w), dtype=torch.float32)
+    
+    # 平移所有锚框使均匀分布在图片上
+    offset_x, offset_y = 1.0/fmap_w, 1.0/fmap_h
+    anchors = MultiBoxPrior(fmap, sizes=s, ratios=[1, 2, 0.5]) + \
+        torch.tensor([offset_x/2, offset_y/2, offset_x/2, offset_y/2])
+    
+    bbox_scale = torch.tensor([[w, h, w, h]], dtype=torch.float32)
+    show_bboxes(plt.imshow(img).axes,
+                    anchors[0] * bbox_scale)
+
+
+def test_multi_scale():
+    logging.info('多尺度生成锚框')
+
+    display_anchors(fmap_w=4, fmap_h=2, s=[0.15])
+    plt.show()
+
+    display_anchors(fmap_w=2, fmap_h=1, s=[0.4])
+    plt.show()
+
+    display_anchors(fmap_w=1, fmap_h=1, s=[0.8])
+    plt.show()
+
+
 if __name__ == '__main__':
     img = Image.open('./data/img2083/img/catdog.jpg')
     w, h = img.size
     logging.info(f'w of image: {w} \t h of image: {h}')
 
-    # test_read_daa(img)
+    test_read_daa(img)
 
     test_anchors(img)
+
+    test_multi_scale()
