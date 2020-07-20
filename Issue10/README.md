@@ -23,3 +23,8 @@ Task09：图像风格迁移；图像分类案例1；图像分类案例2
 Task10：word2vec；词嵌入进阶；文本分类。（nlp 太难啦。。。）
 
 Task11：GAN、DCGAN。（没翻译，粗略运行下代码。。。）
+
+使用到的所有数据集和预训练模型下载：
+
+链接：https://pan.baidu.com/s/1vOYJKET7iz6Gstxua2y48Q 
+提取码：iglh
