@@ -125,3 +125,116 @@ WHERE sale_price * 0.9 - purchase_price > 100 AND
 	(product_type = "办公用品" OR product_type = "厨房用具");
 ```
 
+## 2.4 对表进行聚合查询（`COUNT`、`SUM`、`AVG`、`MAX`、`MIN`）
+
+- 聚合函数：SQL中用于汇总的函数叫做聚合函数。`COUNT`、`SUM`、`AVG`、`MAX`、`MIN` （`MAX`和`MIN`也可用于非数值型数据）
+
+**注意：**
+
+1. COUNT函数的结果根据参数的不同而不同。COUNT(\*)会得到包含NULL的数据行数，而COUNT(<列名>)会得到NULL之外的数据行数。
+2. MAX/MIN函数几乎适用于所有数据类型的列。SUM/AVG函数只适用于数值类型的列。
+3. 想要计算值的种类或者删除重复数据时，可以在COUNT函数的参数中使用DISTINCT。`SELECT COUNT(DISTINCT product_type) FROM product;`
+
+## 2.5 对表进行分组（`GROUP BY`)
+
+- 定义：
+
+之前使用聚合函数都是会整个表的数据进行处理，当你想将进行分组汇总时（即：将现有的数据按照某列来汇总统计），可以使用 `GROUP BY`
+
+- 语法：
+
+```sql
+SELECT <列名1>,<列名2>, <列名3>, ……
+  FROM <表名>
+ GROUP BY <列名1>, <列名2>, <列名3>, ……;
+```
+
+- 扩展：
+
+为什么我的 MySQL8.0 环境运行不使用 GROUP BY 子句的代码时会报错 ？
+这是因为 MYSQL8.0 默认开启了 `ONLY_FULL_GROUP_BY` 查询模式，这种模式下不允许 SELECT list 中出现语义不明的列，用来保证 SQL 语句 “分组聚合” 的合法性。这种模式采用了与Oracle、DB2等数据库相同的处理方式。简单来说就是：**对于用到 GROUP BY 的 SELECT 语句，查询出来的列必须是 GROUP BY 后面声明的列，或者是聚合函数里面的列。**
+
+查询当前客户端 `sql_mode` 的代码如下：
+
+```sql
+SELECT @@SESSION.sql_mode;
+```
+
+GROUP BY 子句就像切蛋糕那样将表进行了分组。
+
+**注意：**
+
+1. 在 GROUP BY 子句中指定的列称为**聚合键**或者**分组列**。
+2. 聚合键中包含 NULL 时，会将 NULL 作为一组特殊数据进行处理。
+3. `GROUP BY` 的子句书写顺序有严格要求。```1 SELECT → 2. FROM → 3. WHERE → 4. GROUP BY```
+4. SELECT子句中可以通过AS来指定别名，但在GROUP BY中不能使用别名。(在DBMS中 ,SELECT子句在GROUP BY子句后执行。)
+
+## 2.6 为聚合结果指定条件（`HAVING`）
+
+### `HAVING` 得到特地分组。
+
+- 问题：
+
+将表使用GROUP BY分组后，怎样才能只取出其中特定几组？
+
+这里WHERE不可行，因为，WHERE子句只能指定记录（行）的条件，而不能用来指定组的条件（例如，“数据行数为 2 行”或者“平均值为 500”等）。
+
+- 答案：
+
+可以在GROUP BY后使用HAVING子句。
+
+HAVING的用法类似WHERE。
+
+### `HAVING` 特点
+
+HAVING子句用于对分组进行过滤，可以使用数字、聚合函数和GROUP BY中指定的列名（聚合键）。
+
+- 使用数字
+
+```sql
+SELECT product_type, COUNT(*)
+  FROM product
+ GROUP BY product_type
+HAVING COUNT(*) = 2;
+```
+
+- 错误形式（因为product_name不包含在GROUP BY聚合键中）
+
+```sql
+SELECT product_type, COUNT(*)
+  FROM product
+ GROUP BY product_type
+HAVING product_name = '圆珠笔';
+```
+
+## 2.7 对查询结果进行排序（`ORDER BY`）
+
+- 定义
+
+SQL中的执行结果是随机排列的，当需要按照特定顺序排序时，可已使用**ORDER BY**子句。
+
+- 语法
+
+```sql
+SELECT <列名1>, <列名2>, <列名3>, ……
+  FROM <表名>
+ ORDER BY <排序基准列1>, <排序基准列2>, ……
+```
+
+默认为升序排列，降序排列为`DESC`
+
+```sql
+-- 降序排列
+SELECT product_id, product_name, sale_price, purchase_price
+  FROM product
+ ORDER BY sale_price DESC;
+-- 多个排序键
+SELECT product_id, product_name, sale_price, purchase_price
+  FROM product
+ ORDER BY sale_price, product_id;
+-- 当用于排序的列名中含有NULL时，NULL会在开头或末尾进行汇总。
+SELECT product_id, product_name, sale_price, purchase_price
+  FROM product
+ ORDER BY purchase_price;
+```
+
