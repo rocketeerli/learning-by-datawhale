@@ -238,3 +238,56 @@ SELECT product_id, product_name, sale_price, purchase_price
  ORDER BY purchase_price;
 ```
 
+- 可以使用别名
+
+前文讲GROUP BY中提到，GROUP BY 子句中不能使用SELECT 子句中定义的别名，但是在 ORDER BY 子句中却可以使用别名。为什么在GROUP BY中不可以而在ORDER BY中可以呢？
+
+这是因为SQL在使用 HAVING 子句时 SELECT 语句的**执行顺序**为：
+
+**`FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY`**
+
+其中SELECT的执行顺序在 GROUP BY 子句之后，ORDER BY 子句之前。也就是说，当在ORDER BY中使用别名时，已经知道了SELECT设置的别名存在，但是在GROUP BY中使用别名时还不知道别名的存在，所以 **在ORDER BY中可以使用别名，但是在GROUP BY中不能使用别名。**
+
+## 练习题
+
+### 2.5 请指出下述SELECT语句中所有的语法错误。
+
+```sql
+SELECT product_id, SUM（product_name）
+--本SELECT语句中存在错误。
+  FROM product 
+ GROUP BY product_type 
+ WHERE regist_date > '2009-09-01';
+```
+
+- WHERE 子句放在GROUP BY子句后面是错误的，应该放在其前面
+- 括号打错了，应该是英文的括号。
+- `product_id` 不是 `GROUP BY`子句的聚合键。（这个好像不是也没啥问题）
+
+### 2.6 请编写一条SELECT语句，求出销售单价（`sale_price` 列）合计值大于进货单价（`purchase_price` 列）合计值1.5倍的商品种类。执行结果如下所示。
+
+```sql
+product_type | sum  | sum 
+-------------+------+------
+衣服         | 5000 | 3300
+办公用品     |  600 | 320
+```
+
+回答：
+
+```sql
+SELECT product_type, SUM(sale_price), SUM(purchase_price)
+ FROM product
+ GROUP BY product_type 
+ HAVING SUM(sale_price) > 1.5 * SUM(purchase_price);
+```
+
+### 2.7 此前我们曾经使用SELECT语句选取出了product（商品）表中的全部记录。当时我们使用了ORDERBY子句来指定排列顺序，但现在已经无法记起当时如何指定的了。请根据下列执行结果，思考ORDERBY子句的内容。
+
+可以用Mysql的IF和ISNULL函数，对数据进行判断是否为NULL，为NULL则返回0，否返回1。再把判断结果的0和1作为分组。
+
+```sql
+SELECT *
+ FROM product
+ ORDER BY IF(ISNULL(regist_date), 0, 1), regist_date DESC, IF(ISNULL(purchase_price), 0, 1);
+```
