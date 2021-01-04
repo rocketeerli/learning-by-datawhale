@@ -186,9 +186,108 @@ SELECT product_id, product_name, sale_price
 
 由于标量子查询的特性，导致标量子查询不仅仅局限于 WHERE 子句中，通常任何可以使用单一值的位置都可以使用。也就是说， 能够使用常数或者列名的地方，无论是 SELECT 子句、GROUP BY 子句、HAVING 子句，还是 ORDER BY 子句，几乎所有的地方都可以使用。
 
+- 重复列的行
+
+还可以这样使用标量子查询：
+
+```sql
+SELECT product_id,
+       product_name,
+       sale_price,
+       (SELECT AVG(sale_price)
+          FROM product) AS avg_price
+  FROM product;
+```
+
+如果直接使用 `AVG(sale_price)`， 仅输出一行数据；如果使用子查询，子查询出来的单个数据自动与每一个父查询的结果结合起来。
+
 ### 关联子查询
 
 通过一系列操作，将子查询与主查询连接起来。例如，为内外子查询的表分别进行命名。
 
 ## 练习题
 
+### 3.1 创建视图
+
+创建出满足下述三个条件的视图（视图名称为 ViewPractice5_1）。使用 product（商品）表作为参照表，假设表中包含初始状态的 8 行数据。
+
+- 条件 1：销售单价大于等于 1000 日元。
+- 条件 2：登记日期是 2009 年 9 月 20 日。
+- 条件 3：包含商品名称、销售单价和登记日期三列。
+
+**Solution：**
+
+```sql
+CREATE VIEW ViewPractice5_1(product_name, sale_price, regist_date) AS
+SELECT product_name, sale_price, regist_date FROM product WHERE (
+	sale_price >= 1000 AND regist_date = '2009-09-20'
+);
+```
+
+### 3.2 向视图中插入数据
+
+向习题一中创建的视图  `ViewPractice5_1` 中插入如下数据，会得到什么样的结果呢？
+
+**Solution:**
+
+报错：
+
+```
+Field of view 'shop.viewpractice5_1' underlying table doesn't have a default value
+```
+
+### 3.3 编写查询语句
+
+请根据如下结果编写 SELECT 语句，其中 `sale_price_all` 列为全部商品的平均销售单价。
+
+```sql
+product_id | product_name | product_type | sale_price | sale_price_all
+------------+-------------+--------------+------------+---------------------
+0001       | T恤衫         | 衣服         | 1000       | 2097.5000000000000000
+0002       | 打孔器        | 办公用品      | 500        | 2097.5000000000000000
+0003       | 运动T恤       | 衣服          | 4000      | 2097.5000000000000000
+0004       | 菜刀          | 厨房用具      | 3000       | 2097.5000000000000000
+0005       | 高压锅        | 厨房用具      | 6800       | 2097.5000000000000000
+0006       | 叉子          | 厨房用具      | 500        | 2097.5000000000000000
+0007       | 擦菜板        | 厨房用具       | 880       | 2097.5000000000000000
+0008       | 圆珠笔        | 办公用品       | 100       | 2097.5000000000000000
+```
+
+**Solution:**
+
+```sql
+SELECT product_id, product_name, product_type, sale_price, 
+(SELECT AVG(sale_price) FROM product) as sale_price_all
+FROM product;
+```
+
+### 3.4 创建视图
+
+请根据习题一中的条件编写一条 SQL 语句，创建一幅包含如下数据的视图（名称为 `AvgPriceByType`）。
+
+```sql
+product_id | product_name | product_type | sale_price | avg_sale_price
+------------+-------------+--------------+------------+---------------------
+0001       | T恤衫         | 衣服         | 1000       |2500.0000000000000000
+0002       | 打孔器         | 办公用品     | 500        | 300.0000000000000000
+0003       | 运动T恤        | 衣服        | 4000        |2500.0000000000000000
+0004       | 菜刀          | 厨房用具      | 3000        |2795.0000000000000000
+0005       | 高压锅         | 厨房用具     | 6800        |2795.0000000000000000
+0006       | 叉子          | 厨房用具      | 500         |2795.0000000000000000
+0007       | 擦菜板         | 厨房用具     | 880         |2795.0000000000000000
+0008       | 圆珠笔         | 办公用品     | 100         | 300.0000000000000000
+```
+
+提示：其中的关键是 avg_sale_price 列。与习题三不同，这里需要计算出的 是各商品种类的平均销售单价。这与使用关联子查询所得到的结果相同。 也就是说，该列可以使用关联子查询进行创建。问题就是应该在什么地方使用这个关联子查询。
+
+**Solution:**
+
+```sql
+CREATE VIEW AvgPriceByType AS
+SELECT product_id, product_name, product_type, sale_price, 
+(SELECT AVG(sale_price) FROM product AS p2 
+WHERE p1.product_type = p2.product_type) as avg_sale_price
+FROM product AS p1;
+```
+
+## 3.3 各种各样的函数
