@@ -291,3 +291,63 @@ FROM product AS p1;
 ```
 
 ## 3.3 各种各样的函数
+
+### 算数函数
+
+- `+ - * /`四则运算
+
+为了演示其他的几个算数函数，在此构造`samplemath`表
+
+```sql
+-- DDL ：创建表
+USE shop;
+DROP TABLE IF EXISTS samplemath;
+CREATE TABLE samplemath
+(m float(10,3),
+n INT,
+p INT);
+
+-- DML ：插入数据
+START TRANSACTION; -- 开始事务
+INSERT INTO samplemath(m, n, p) VALUES (500, 0, NULL);
+INSERT INTO samplemath(m, n, p) VALUES (-180, 0, NULL);
+INSERT INTO samplemath(m, n, p) VALUES (NULL, NULL, NULL);
+INSERT INTO samplemath(m, n, p) VALUES (NULL, 7, 3);
+INSERT INTO samplemath(m, n, p) VALUES (NULL, 5, 2);
+INSERT INTO samplemath(m, n, p) VALUES (NULL, 4, NULL);
+INSERT INTO samplemath(m, n, p) VALUES (8, NULL, 3);
+INSERT INTO samplemath(m, n, p) VALUES (2.27, 1, NULL);
+INSERT INTO samplemath(m, n, p) VALUES (5.555,2, NULL);
+INSERT INTO samplemath(m, n, p) VALUES (NULL, 1, NULL);
+INSERT INTO samplemath(m, n, p) VALUES (8.76, NULL, NULL);
+COMMIT; -- 提交事务
+-- 查询表内容
+SELECT * FROM samplemath;
+```
+
+- ABS – 绝对值
+
+语法：`ABS( 数值 )`
+
+- MOD – 求余数
+
+语法：`MOD( 被除数，除数 )`、
+
+注意：主流的 DBMS 都支持 MOD 函数，只有SQL Server 不支持该函数，其使用`%`符号来计算余数。
+
+- ROUND – 四舍五入
+
+语法：`ROUND( 对象数值，保留小数的位数 )`
+
+- 练习
+
+```sql
+SELECT m,
+ABS(m) AS abs_col ,
+n, p,
+MOD(n, p) AS mod_col,
+ROUND(m,1)ASround_colS
+FROM samplemath;
+```
+
+### 字符串函数
