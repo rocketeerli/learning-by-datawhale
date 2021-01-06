@@ -339,7 +339,7 @@ SELECT * FROM samplemath;
 
 语法：`ROUND( 对象数值，保留小数的位数 )`
 
-- 练习
+- 例子
 
 ```sql
 SELECT m,
@@ -351,3 +351,125 @@ FROM samplemath;
 ```
 
 ### 字符串函数
+
+字符串函数也经常被使用，为了学习字符串函数，在此我们构造`samplestr`表。
+
+```sql
+-- DDL ：创建表
+USE  shop;
+DROP TABLE IF EXISTS samplestr;
+CREATE TABLE samplestr
+(str1 VARCHAR (40),
+str2 VARCHAR (40),
+str3 VARCHAR (40)
+);
+-- DML：插入数据
+START TRANSACTION;
+INSERT INTO samplestr (str1, str2, str3) VALUES ('opx',	'rt', NULL);
+INSERT INTO samplestr (str1, str2, str3) VALUES ('abc', 'def', NULL);
+INSERT INTO samplestr (str1, str2, str3) VALUES ('太阳',	'月亮', '火星');
+INSERT INTO samplestr (str1, str2, str3) VALUES ('aaa',	NULL, NULL);
+INSERT INTO samplestr (str1, str2, str3) VALUES (NULL, 'xyz', NULL);
+INSERT INTO samplestr (str1, str2, str3) VALUES ('@!#$%', NULL, NULL);
+INSERT INTO samplestr (str1, str2, str3) VALUES ('ABC', NULL, NULL);
+INSERT INTO samplestr (str1, str2, str3) VALUES ('aBC', NULL, NULL);
+INSERT INTO samplestr (str1, str2, str3) VALUES ('abc哈哈',  'abc', 'ABC');
+INSERT INTO samplestr (str1, str2, str3) VALUES ('abcdefabc', 'abc', 'ABC');
+INSERT INTO samplestr (str1, str2, str3) VALUES ('micmic', 'i', 'I');
+COMMIT;
+```
+
+- CONCAT – 拼接
+
+语法：`CONCAT(str1, str2, str3)`
+
+- LENGTH – 字符串长度
+
+语法：`LENGTH( 字符串 )`
+
+- LOWER – 小写转换 （UPPER 函数用于大写转换。）
+
+- REPLACE – 字符串的替换
+
+语法：`REPLACE( 对象字符串，替换前的字符串，替换后的字符串 )`
+
+- SUBSTRING – 字符串的截取
+
+语法：`SUBSTRING （对象字符串 FROM 截取的起始位置 FOR 截取的字符数）`
+
+- SUBSTRING_INDEX – 字符串按索引截取
+
+语法：`SUBSTRING_INDEX (原始字符串， 分隔符，n)`
+
+该函数用来获取原始字符串按照分隔符分割后，第 n 个分隔符之前（或之后）的子字符串，支持正向和反向索引，索引起始值分别为 1 和 -1。
+
+- 例子
+
+```sql
+SELECT str1, str2, str3,
+	CONCAT(str1, str2, str3) AS str_concat,
+	LENGTH(str1) AS len_str1,
+	LOWER(str1) AS low_str1,
+	REPLACE(str1, str2, str3) AS rep_str,
+	SUBSTRING(str1 FROM 3 FOR 2) AS sub_str,
+	SUBSTRING_INDEX(str1, 'b', 1) AS sub_str_index
+FROM samplestr;
+```
+
+### 日期函数
+
+- CURRENT_DATE – 获取当前日期 
+
+用法举例：`SELECT CURRENT_DATE;`，下同。
+
+- CURRENT_TIME – 当前时间
+
+- CURRENT_TIMESTAMP – 当前日期和时间
+
+- EXTRACT – 截取日期元素
+
+  语法：`EXTRACT(日期元素 FROM 日期)`
+
+  使用 EXTRACT 函数可以截取出日期数据中的一部分，例如“年”、“月”或者“小时”“秒”等。该函数的返回值并不是日期类型而是数值类型
+
+  - 例子：
+
+  ```sql
+  SELECT CURRENT_TIMESTAMP as now,
+  EXTRACT(YEAR   FROM CURRENT_TIMESTAMP) AS year,
+  EXTRACT(MONTH  FROM CURRENT_TIMESTAMP) AS month,
+  EXTRACT(DAY    FROM CURRENT_TIMESTAMP) AS day,
+  EXTRACT(HOUR   FROM CURRENT_TIMESTAMP) AS hour,
+  EXTRACT(MINUTE FROM CURRENT_TIMESTAMP) AS MINute,
+  EXTRACT(SECOND FROM CURRENT_TIMESTAMP) AS second;
+  ```
+
+### 转换函数
+
+在 SQL 中主要有两种转换：一是数据类型的转换，简称为类型转换，在英语中称为`cast`；另一个是值的转换。
+
+- CAST – 类型转换
+
+  - 语法：`CAST（转换前的值 AS 想要转换的数据类型）`
+
+  - 例子：
+
+  ```sql
+  -- 将字符串类型转换为日期类型
+  SELECT CAST('2021-01-6' AS DATE) AS date_col;
+  ```
+
+- COALESCE – 将NULL转换为其他值
+
+  COALESCE 是 SQL 特有的函数。该函数会返回可变参数 A 中左侧开始第 1个不是NULL的值。
+
+  - 语法：`COALESCE(数据1，数据2，数据3……)`
+  - 例子：
+
+  ```sql
+  SELECT COALESCE(NULL, 11) AS col_1,
+         COALESCE(NULL, 'hello world', NULL) AS col_2,
+         COALESCE(NULL, NULL, '2020-11-01') AS col_3;
+  ```
+
+## 谓词
