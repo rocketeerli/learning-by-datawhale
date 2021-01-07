@@ -472,4 +472,246 @@ FROM samplestr;
          COALESCE(NULL, NULL, '2020-11-01') AS col_3;
   ```
 
-## 谓词
+## 3.4 谓词
+
+- 定义：谓词就是返回值为真值的函数。包括`TRUE / FALSE / UNKNOWN`。
+
+- 分类：LIKE、BETWEEN、IS NULL、IS NOT NULL、IN、EXISTS
+
+### LIKE 谓词 
+
+用于字符串的部分一致查询，当需要进行字符串的部分一致查询时需要使用该谓词。
+
+部分一致大体可以分为前方一致、中间一致和后方一致三种类型。
+
+为了演示，首先需要创建一个表：
+
+```sql
+-- DDL ：创建表
+CREATE TABLE samplelike
+( strcol VARCHAR(6) NOT NULL,
+PRIMARY KEY (strcol));
+-- DML ：插入数据
+START TRANSACTION; -- 开始事务
+INSERT INTO samplelike (strcol) VALUES ('abcddd');
+INSERT INTO samplelike (strcol) VALUES ('dddabc');
+INSERT INTO samplelike (strcol) VALUES ('abdddc');
+INSERT INTO samplelike (strcol) VALUES ('abcdd');
+INSERT INTO samplelike (strcol) VALUES ('ddabc');
+INSERT INTO samplelike (strcol) VALUES ('abddc');
+COMMIT; -- 提交事务
+SELECT * FROM samplelike;
+```
+
+- 前方一致：从字符串首字符开始匹配。（例如：选取出“dddabc”）
+
+```sql
+SELECT *
+FROM samplelike
+WHERE strcol LIKE 'ddd%';
+```
+
+其中的 `%` 是代表“零个或多个任意字符串”的特殊符号，本例中代表“以ddd开头的所有字符串”。
+
+- 中间一致：字符串中间匹配。（例如：选取出“abcddd”, “dddabc”, “abdddc”）
+
+```sql
+SELECT *
+FROM samplelike
+WHERE strcol LIKE '%ddd%';
+```
+
+- 后方一致：从字符串最后开始匹配。（例如：选取出“abcddd“）
+
+```sql
+SELECT *
+FROM samplelike
+WHERE strcol LIKE '%ddd';
+```
+
+- `_`下划线匹配任意 1 个字符
+
+使用 _（下划线）来代替 `%`，与 `%` 不同的是，它代表了“任意 1 个字符”。
+
+```sql
+SELECT *
+FROM samplelike
+WHERE strcol LIKE 'abc__';
+```
+
+### BETWEEN谓词
+
+使用 BETWEEN 可以进行范围查询。该谓词与其他谓词或者函数的不同之处在于它使用了 3 个参数。
+
+- BETWEEN 例子
+
+```sql
+-- 选取销售单价为100～ 1000元的商品
+SELECT product_name, sale_price
+FROM product
+WHERE sale_price BETWEEN 100 AND 1000;
+```
+
+BETWEEN 的特点就是结果中会包含 100 和 1000 这两个临界值，也就是闭区间。
+
+如果不想让结果中包含临界值，那就必须使用 < 和 >。
+
+- 使用 < 和 > 例子
+
+```sql
+SELECT product_name, sale_price
+FROM product
+WHERE sale_price > 100
+AND sale_price < 1000;
+```
+
+### IS NULL、 IS NOT NULL
+
+- 为了选取出某些值为 NULL 的列的数据，不能使用 =，而只能使用特定的谓词IS NULL。
+
+```sql
+SELECT product_name, purchase_price
+FROM product
+WHERE purchase_price IS NULL;
+```
+
+- 想要选取 NULL 以外的数据时，需要使用IS NOT NULL。
+
+```sql
+SELECT product_name, purchase_price
+FROM product
+WHERE purchase_price IS NOT NULL;
+```
+
+### IN 谓词
+
+`IN` 谓词是 `OR` 的简便用法。
+
+- 多个查询条件取并集时可以选择使用`or`语句。
+
+```sql
+-- 通过OR指定多个进货单价进行查询
+SELECT product_name, purchase_price
+FROM product
+WHERE purchase_price = 320
+OR purchase_price = 500
+OR purchase_price = 5000;
+```
+
+随着希望选取的对象越来越多， SQL 语句也会越来越长，阅读起来也会越来越困难。
+
+- 使用 IN 谓词`IN(值1, 值2, 值3, …)` 来替换上述 SQL 语句。
+
+```sql
+SELECT product_name, purchase_price
+FROM product
+WHERE purchase_price IN (320, 500, 5000);
+```
+
+需要注意的是:
+
+**在使用IN 和 NOT IN 时是无法选取出NULL数据的。NULL 只能使用 IS NULL 和 IS NOT NULL 来进行判断。**
+
+- 使用子查询作为 IN 谓词的参数
+
+首先创建表：
+
+```sql
+-- DDL ：创建表
+DROP TABLE IF EXISTS shopproduct;
+CREATE TABLE shopproduct
+(  shop_id CHAR(4)     NOT NULL,
+ shop_name VARCHAR(200) NOT NULL,
+product_id CHAR(4)      NOT NULL,
+  quantity INTEGER      NOT NULL,
+PRIMARY KEY (shop_id, product_id) -- 指定主键
+);
+-- DML ：插入数据
+START TRANSACTION; -- 开始事务
+INSERT INTO shopproduct (shop_id, shop_name, product_id, quantity) VALUES ('000A', '东京', '0001', 30);
+INSERT INTO shopproduct (shop_id, shop_name, product_id, quantity) VALUES ('000A', '东京', '0002', 50);
+INSERT INTO shopproduct (shop_id, shop_name, product_id, quantity) VALUES ('000A', '东京', '0003', 15);
+INSERT INTO shopproduct (shop_id, shop_name, product_id, quantity) VALUES ('000B', '名古屋', '0002', 30);
+INSERT INTO shopproduct (shop_id, shop_name, product_id, quantity) VALUES ('000B', '名古屋', '0003', 120);
+INSERT INTO shopproduct (shop_id, shop_name, product_id, quantity) VALUES ('000B', '名古屋', '0004', 20);
+INSERT INTO shopproduct (shop_id, shop_name, product_id, quantity) VALUES ('000B', '名古屋', '0006', 10);
+INSERT INTO shopproduct (shop_id, shop_name, product_id, quantity) VALUES ('000B', '名古屋', '0007', 40);
+INSERT INTO shopproduct (shop_id, shop_name, product_id, quantity) VALUES ('000C', '大阪', '0003', 20);
+INSERT INTO shopproduct (shop_id, shop_name, product_id, quantity) VALUES ('000C', '大阪', '0004', 50);
+INSERT INTO shopproduct (shop_id, shop_name, product_id, quantity) VALUES ('000C', '大阪', '0006', 90);
+INSERT INTO shopproduct (shop_id, shop_name, product_id, quantity) VALUES ('000C', '大阪', '0007', 70);
+INSERT INTO shopproduct (shop_id, shop_name, product_id, quantity) VALUES ('000D', '福冈', '0001', 100);
+COMMIT; -- 提交事务
+SELECT * FROM shopproduct;
+```
+
+- 例子
+
+取出大阪在售商品的销售单价。
+
+```sql
+-- step1：取出大阪门店的在售商品 `product_id`
+SELECT product_id
+FROM shopproduct
+WHERE shop_id = '000C';
+```
+
+```sql
+-- step2：取出大阪门店在售商品的销售单价 `sale_price`
+SELECT product_name, sale_price
+FROM product
+WHERE product_id IN (SELECT product_id
+  FROM shopproduct
+                       WHERE shop_id = '000C');
+```
+
+子查询展开的结果：
+
+```sql
+-- 子查询展开后的结果
+SELECT product_name, sale_price
+FROM product
+WHERE product_id IN ('0003', '0004', '0006', '0007');
+```
+
+注意：
+
+1. **使用子查询即可保持 sql 语句不变**，极大提高了程序的可维护性，这是系统开发中需要重点考虑的内容。
+
+2. NOT IN 同样支持子查询作为参数，用法和 in 完全一样。
+
+### EXIST 谓词
+
+EXIST（存在）谓词的主语是“记录”。EXIST 的左侧并没有任何参数。因为 EXIST 是只有 1 个参数的谓词。 所以，EXIST 只需要在右侧书写 1 个参数，该参数通常都会是一个子查询。
+
+- 继续以 IN和子查询 中的示例，使用 EXIST 选取出大阪门店在售商品的销售单价。
+
+```sql
+SELECT product_name, sale_price
+  FROM product AS p
+ WHERE EXISTS (SELECT *
+                 FROM shopproduct AS sp
+                WHERE sp.shop_id = '000C'
+                  AND sp.product_id = p.product_id);
+```
+
+由于通过条件“SP.product_id = P.product_id”将 product 表和 shopproduct表进行了联接，因此作为参数的是关联子查询。 EXIST 通常会使用关联子查询作为参数。
+
+- 子查询中的 `SELECT *`
+
+**由于 EXIST 只关心记录是否存在，因此返回哪些列都没有关系**。因此，使用下面的查询语句，查询结果也不会发生变化。
+
+```sql
+SELECT product_name, sale_price
+  FROM product AS p
+ WHERE EXISTS (SELECT 1 -- 这里可以书写适当的常数
+                 FROM shopproduct AS sp
+                WHERE sp.shop_id = '000C'
+                  AND sp.product_id = p.product_id);
+```
+
+**可以把在 EXIST 的子查询中书写 `SELECT *` 当作 SQL 的一种习惯。**
+
+- 使用NOT EXIST替换NOT IN
+
+就像 EXIST 可以用来替换 IN 一样， NOT IN 也可以用NOT EXIST来替换。NOT EXIST 与 EXIST 相反，当“不存在”满足子查询中指定条件的记录时返回真（TRUE）。
