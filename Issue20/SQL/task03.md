@@ -715,3 +715,145 @@ SELECT product_name, sale_price
 - 使用NOT EXIST替换NOT IN
 
 就像 EXIST 可以用来替换 IN 一样， NOT IN 也可以用NOT EXIST来替换。NOT EXIST 与 EXIST 相反，当“不存在”满足子查询中指定条件的记录时返回真（TRUE）。
+
+## 3.5 CASE 表达式
+
+CASE 表达式是在区分情况时使用的，这种情况的区分在编程中通常称为（条件）分支。
+
+CASE表达式的语法分为**简单CASE表达式**和**搜索CASE表达式**两种。搜索CASE表达式包含简单CASE表达式的全部功能。
+
+- 语法：
+
+```nohighlight
+CASE WHEN <求值表达式> THEN <表达式>
+     WHEN <求值表达式> THEN <表达式>
+     WHEN <求值表达式> THEN <表达式>
+     .
+     .
+     .
+ELSE <表达式>
+END 
+```
+
+上述语句执行时，依次判断 when 表达式是否为真值，是则执行 THEN 后的语句，如果所有的 when 表达式均为假，则执行 ELSE 后的语句。
+无论多么庞大的 CASE 表达式，最后也只会返回一个值。
+
+- 例子
+
+要实现如下结果：
+
+```nohighlight
+A ：衣服
+B ：办公用品
+C ：厨房用具  
+```
+
+1. 根据不同分支得到不同列值
+
+```sql
+SELECT  product_name,
+        CASE WHEN product_type = '衣服' THEN CONCAT('A ： ',product_type)
+             WHEN product_type = '办公用品'  THEN CONCAT('B ： ',product_type)
+             WHEN product_type = '厨房用具'  THEN CONCAT('C ： ',product_type)
+             ELSE NULL
+        END AS abc_product_type
+  FROM  product;
+```
+
+**ELSE 子句也可以省略不写，这时会被默认为 ELSE NULL。CASE 表达式最后的“END”是不能省略的。**
+
+2. 实现列方向上的聚合
+
+聚合函数 + CASE WHEN 表达式即可实现该效果
+
+```sql
+-- 对按照商品种类计算出的销售单价合计值进行行列转换
+SELECT SUM(CASE WHEN product_type = '衣服' THEN sale_price ELSE 0 END) AS sum_price_clothes,
+       SUM(CASE WHEN product_type = '厨房用具' THEN sale_price ELSE 0 END) AS sum_price_kitchen,
+       SUM(CASE WHEN product_type = '办公用品' THEN sale_price ELSE 0 END) AS sum_price_office
+  FROM product;
+```
+
+3. 实现行转列
+
+```sql
+-- CASE WHEN 实现数字列 score 行转列
+SELECT name,
+       SUM(CASE WHEN subject = '语文' THEN score ELSE null END) as chinese,
+       SUM(CASE WHEN subject = '数学' THEN score ELSE null END) as math,
+       SUM(CASE WHEN subject = '外语' THEN score ELSE null END) as english
+  FROM score
+ GROUP BY name;
+```
+
+- 当待转换列为数字时，可以使用`SUM AVG MAX MIN`等聚合函数；
+- 当待转换列为文本时，可以使用`MAX MIN`等聚合函数
+
+## 练习题
+
+### 3.5 判断题
+
+**Question:** 运算或者函数中含有 NULL 时，结果全都会变为NULL ？（判断题）
+
+**Answer:** 正确。（？？？）
+
+### 3.6 执行查询语句
+
+**Question:** 对本章中使用的 product（商品）表执行如下 2 条 SELECT 语句，能够得到什么样的结果呢？
+
+①
+
+```sql
+SELECT product_name, purchase_price
+  FROM product
+ WHERE purchase_price NOT IN (500, 2800, 5000);
+```
+
+②
+
+```sql
+SELECT product_name, purchase_price
+  FROM product
+ WHERE purchase_price NOT IN (500, 2800, 5000, NULL);
+```
+
+**Answer:** 
+
+① 选出成本不是 500, 2800 和 5000 的商品名字和成本。
+
+解析：该查询语句仅仅取出了 `purchase_price` 不是 500、2800、5000 的商品，而不包含 `purchase_price` 为 **`NULL`** 的商品，这是因为 **谓词无法与 `NULL` 进行比较**。
+
+② 查询结果为空。（在使用IN 和 NOT IN 时是无法选取出NULL数据的。）
+
+解析：代码执行之前，你可能会认为该语句会返回和查询 ① 同样的结果，实际上它却返回了零条记录，这是因为 **`NOT IN`** 的参数中不能包含 **`NULL`**，否则，查询结果通常为空。
+
+### 3.7 编写 SQL 语句
+
+**Question:**
+
+按照销售单价（ sale_price）对练习 3.6 中的 product（商品）表中的商品进行如下分类。
+
+- 低档商品：销售单价在1000日元以下（T恤衫、办公用品、叉子、擦菜板、 圆珠笔）
+- 中档商品：销售单价在1001日元以上3000日元以下（菜刀）
+- 高档商品：销售单价在3001日元以上（运动T恤、高压锅）
+
+请编写出统计上述商品种类中所包含的商品数量的 SELECT 语句，结果如下所示。
+
+执行结果
+
+```sql
+low_price | mid_price | high_price
+----------+-----------+------------
+        5 |         1 |         2
+```
+
+**Answer:**
+
+```sql
+SELECT 	
+SUM(case when sale_price <= 1000 then 1 ELSE 0 END) AS low_price,
+SUM(case when sale_price BETWEEN 1001 AND 3000 then 1 ELSE 0 END) AS mid_price,
+SUM(case when sale_price > 3000 then 1 ELSE 0 END) AS high_price
+FROM product;
+```
+

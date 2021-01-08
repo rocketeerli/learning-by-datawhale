@@ -1,5 +1,17 @@
 ## SQL
 
 * Task00/01：数据库环境搭建及初步了解
-
 * Task02：基础排序与查询
+  - SELECT 语句
+  - 运算符（算术运算符和逻辑运算符）
+  - 聚合查询（`COUNT`、`SUM`、`AVG`、`MAX`、`MIN`）
+  - 分组（`GROUP BY` && `HAVING`）
+  - 排序（`ORDER BY`）
+* Task03：复杂一点的查询
+  - 视图（`VIEW`）
+  - 子查询（子查询嵌套、标量子查询和关联子查询）
+  - 函数表达式（算数函数、字符串函数、日期函数和转换函数）
+  - 谓词（`LIKE`、`BETWEEN`、`IS NULL`、`IS NOT NULL`、`IN`、`EXISTS`）
+  - `CASE` 表达式
+* Task04：集合运算
+
