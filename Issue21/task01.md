@@ -50,7 +50,42 @@ public:
 
 ## [4. 寻找两个正序数组的中位数](https://leetcode-cn.com/problems/median-of-two-sorted-arrays/)
 
+```c++
+class Solution {
+public:
+    double findMedianSortedArrays(vector<int>& nums1, vector<int>& nums2) {
+        int n = nums1.size(), m = nums2.size(), total = n + m;
+        if (total % 2) {
+            return findkmin(nums1, nums2, (total + 1)/2);
+        } else {
+            return double(findkmin(nums1, nums2, total/2)+findkmin(nums1, nums2, total/2+1))/2;
+        }
+    }
+    int findkmin(vector<int>& nums1, vector<int>& nums2, int k) {
+        int n = nums1.size(), m = nums2.size();
+        int index1 = 0, index2 = 0;
+        while (true) {
+            if (index1 == n) return nums2[index2 + k - 1];
+            if (index2 == m) return nums1[index1 + k - 1];
+            if (k == 1) return min(nums1[index1], nums2[index2]);
+            int km = k / 2 - 1;
+            int i_1 = min(index1 + km, n-1), i_2 = min(index2 + km, m-1);
+            int mid1 = nums1[i_1], mid2 = nums2[i_2];
+            if (mid1 <= mid2) {
+                k -= i_1 - index1 + 1;
+                index1 = i_1 + 1;
+            } else {
+                k -= i_2 - index2 + 1;
+                index2 = i_2 + 1;
+            }
+        }
+    }
+};
+```
 
+第一眼看到 log 的时间复杂度，就猜到是使用二分查找的方式。但直接二分，比较复杂，下标梳理清楚非常不容易。
+
+需要转换问题，转换成寻找第 k 小的数。这里也有一个问题，就是为什么需要向前的步长是 k/2-1，而不是 k/2。保证前面排除的过程中，每次排除k/2个值。
 
 ## [5. 最长回文子串](https://leetcode-cn.com/problems/longest-palindromic-substring/)
 
