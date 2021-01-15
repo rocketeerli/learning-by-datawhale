@@ -23,3 +23,15 @@
 - 016 [最接近的三数之和](https://leetcode-cn.com/problems/3sum-closest/)
 - 020 [有效的括号](https://leetcode-cn.com/problems/valid-parentheses/)
 - 021 [合并两个有序链表](https://leetcode-cn.com/problems/merge-two-sorted-lists/)
+
+### Task05: 完成以下三个题目
+
+- [023 合并K个排序链表](https://leetcode-cn.com/problems/merge-k-sorted-lists/)
+- [026 删除排序数组中的重复项](https://leetcode-cn.com/problems/remove-duplicates-from-sorted-array/)
+- [033 搜索旋转排序数组](https://leetcode-cn.com/problems/search-in-rotated-sorted-array/)
+
+### Task06：完成以下三个题目
+
+- [043 字符串相乘](https://leetcode-cn.com/problems/multiply-strings/)
+- [046 全排列](https://leetcode-cn.com/problems/permutations/)
+- [053 最大子序和](https://leetcode-cn.com/problems/maximum-subarray/)
