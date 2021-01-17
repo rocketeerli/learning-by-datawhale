@@ -35,3 +35,17 @@
 - [043 字符串相乘](https://leetcode-cn.com/problems/multiply-strings/)
 - [046 全排列](https://leetcode-cn.com/problems/permutations/)
 - [053 最大子序和](https://leetcode-cn.com/problems/maximum-subarray/)
+
+### Task07: 完成以下三个题目
+
+- [54. 螺旋矩阵](https://leetcode-cn.com/problems/spiral-matrix/)
+
+- [59. 螺旋矩阵 II](https://leetcode-cn.com/problems/spiral-matrix-ii/)
+
+- [61. 旋转链表](https://leetcode-cn.com/problems/rotate-list/)
+
+### Task 08: 完成以下三个题目
+
+- [62. 不同路径](https://leetcode-cn.com/problems/unique-paths/)
+- [70. 爬楼梯](https://leetcode-cn.com/problems/climbing-stairs/)
+- [78. 子集](https://leetcode-cn.com/problems/subsets/)
