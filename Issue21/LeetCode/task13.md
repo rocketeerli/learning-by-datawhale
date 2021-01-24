@@ -37,9 +37,32 @@ public:
 
 ## [169. 多数元素](https://leetcode-cn.com/problems/majority-element/)
 
+```c++
+class Solution {
+public:
+    int majorityElement(vector<int>& nums) {
+        int num = 0, sum = 0;
+        for (int i = 0; i < nums.size(); i++) {
+            if (nums[i] == num) sum++;
+            else if (sum == 0) {
+                num = nums[i];
+                sum = 1;
+            } else {
+                sum--;
+            }
+        }
+        return num;
+    }
+};
+```
 
+突然发现，这是之前面试别人的面试题\~
 
+每次记录当前出现次数最多的数字，和其出现次数，如果有出现与其数字值不同的，则次数减一；否则次数加一。当次数减为0时，遇到下一个不相同的数字，更新出现次数最多的数字为该数字，然后记录其出现次数 。继续以上步骤。
 
+时间复杂度为O(n)，空间复杂度为O(1)。
+
+看了题解，发现这个算法叫**Boyer-Moore 投票算法**。题解中有很多其他的方法，但感觉都是为了这个算法做铺垫。
 
 ## [206. 反转链表](https://leetcode-cn.com/problems/reverse-linked-list/)
 
