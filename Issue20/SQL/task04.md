@@ -261,5 +261,100 @@ SELECT SP.shop_id
 
 **练习题：**
 
-使用外连结从 `shopproduct` 表和 `product` 表中找出那些在某个商店库存少于50的商品及对应的商店
+使用外连结从 `shopproduct` 表和 `product` 表中找出那些在某个商店库存少于50的商品及对应的商店。
 
+我们很自然会写出如下代码
+
+```sql
+SELECT P.product_id
+       ,P.product_name
+       ,P.sale_price
+       ,SP.shop_id
+       ,SP.shop_name
+       ,SP.quantity
+  FROM product AS P
+  LEFT OUTER JOIN shopproduct AS SP
+    ON SP.product_id = P.product_id
+ WHERE quantity< 50
+```
+
+这样会导致找不到值为 null 的数据，因为 null 不支持常规的比较，如果强行比较，结果一定为 false。
+
+可以试着把WHERE子句挪到外连结之前进行: 先写个子查询,然后再把这个子查询和主表连结起来。
+
+```sql
+SELECT P.product_id
+      ,P.product_name
+      ,P.sale_price
+       ,SP.shop_id
+      ,SP.shop_name
+      ,SP.quantity 
+  FROM product AS P
+  LEFT OUTER JOIN-- 先筛选quantity<50的商品
+   (SELECT *
+      FROM shopproduct
+     WHERE quantity < 50 ) AS SP
+    ON SP.product_id = P.product_id
+```
+
+### 4.2.3 在 MySQL 中实现全外连结
+
+全外连结本质上就是对左表和右表的所有行都予以保留, 能用 ON 关联到的就把左表和右表的内容在一行内显示, 不能被关联到的就分别显示, 然后把多余的列用缺失值填充.
+
+遗憾的是, MySQL8.0 目前还不支持全外连结, 不过我们可以对左连结和右连结的结果进行 UNION 来实现全外连结.
+
+## 4.3 多表连结
+
+首先创建一个用于三表连结的表 Inventoryproduct。
+
+建表语句如下:
+
+```
+CREATE TABLE Inventoryproduct
+( inventory_id       CHAR(4) NOT NULL,
+product_id         CHAR(4) NOT NULL,
+inventory_quantity INTEGER NOT NULL,
+PRIMARY KEY (inventory_id, product_id));
+```
+
+然后插入一些数据:
+
+```sql
+--- DML：插入数据
+START TRANSACTION;
+INSERT INTO Inventoryproduct (inventory_id, product_id, inventory_quantity)
+VALUES ('P001', '0001', 0);
+INSERT INTO Inventoryproduct (inventory_id, product_id, inventory_quantity)
+VALUES ('P001', '0002', 120);
+INSERT INTO Inventoryproduct (inventory_id, product_id, inventory_quantity)
+VALUES ('P001', '0003', 200);
+INSERT INTO Inventoryproduct (inventory_id, product_id, inventory_quantity)
+VALUES ('P001', '0004', 3);
+INSERT INTO Inventoryproduct (inventory_id, product_id, inventory_quantity)
+VALUES ('P001', '0005', 0);
+INSERT INTO Inventoryproduct (inventory_id, product_id, inventory_quantity)
+VALUES ('P001', '0006', 99);
+INSERT INTO Inventoryproduct (inventory_id, product_id, inventory_quantity)
+VALUES ('P001', '0007', 999);
+INSERT INTO Inventoryproduct (inventory_id, product_id, inventory_quantity)
+VALUES ('P001', '0008', 200);
+INSERT INTO Inventoryproduct (inventory_id, product_id, inventory_quantity)
+VALUES ('P002', '0001', 10);
+INSERT INTO Inventoryproduct (inventory_id, product_id, inventory_quantity)
+VALUES ('P002', '0002', 25);
+INSERT INTO Inventoryproduct (inventory_id, product_id, inventory_quantity)
+VALUES ('P002', '0003', 34);
+INSERT INTO Inventoryproduct (inventory_id, product_id, inventory_quantity)
+VALUES ('P002', '0004', 19);
+INSERT INTO Inventoryproduct (inventory_id, product_id, inventory_quantity)
+VALUES ('P002', '0005', 99);
+INSERT INTO Inventoryproduct (inventory_id, product_id, inventory_quantity)
+VALUES ('P002', '0006', 0);
+INSERT INTO Inventoryproduct (inventory_id, product_id, inventory_quantity)
+VALUES ('P002', '0007', 0 );
+INSERT INTO Inventoryproduct (inventory_id, product_id, inventory_quantity)
+VALUES ('P002', '0008', 18);
+COMMIT;
+```
+
+### 4.3.1 多表进行内连结
