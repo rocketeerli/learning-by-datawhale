@@ -133,7 +133,7 @@ SELECT *
 
 上一节的集合运算不能改变列的变化，虽然使用函数或者 CASE表达式等列运算, 可以增加列的数量, 但仍然只能从一张表中提供的基础信息列中获得一些"引申列", 本质上并不能提供更多的信息。
 
-使用关联子查询也可以从其他表获取信息, 但**连结（JOIN）**更适合从多张表获取信息。
+使用关联子查询也可以从其他表获取信息, 但**连结（JOIN）更适合从多张表获取信息**。
 
 ### 4.2.1 内连结（INNER JOIN）
 
@@ -170,3 +170,96 @@ FROM <tb_1> INNER JOIN <tb_2> ON <condition(s)>
 最简单的情形, 是在内连结之前就使用 GROUP BY 子句。
 
 但是如果分组列和被聚合的列不在同一张表, 且二者都未被用于连结两张表, 则只能先连结, 再聚合。
+
+```sql
+SELECT SP.shop_id
+      ,SP.shop_name
+      ,MAX(P.sale_price) AS max_price
+  FROMshopproduct AS SP
+ INNER JOINproduct AS P
+    ON SP.product_id = P.product_id
+ GROUP BY SP.shop_id,SP.shop_name
+```
+
+- 自连结（SELF JOIN）
+
+一张表也可以与自身作连结, 这种连接称之为自连结。
+
+- 内连结与关联子查询
+
+关联子查询可以使用内连结进行改写。
+
+- 自然连结(NATURAL JOIN)
+
+当两个表进行自然连结时, 会按照两个表中都包含的列名来进行等值内连结, 此时无需使用 ON 来指定连接条件。
+
+```sql
+SELECT *  FROM shopproduct NATURAL JOIN product
+```
+
+- 使用连结求交集
+
+MySQL 8.0 里没有交集运算, 上面是通过并集和差集来实现求交集的。现在可以使用连结来实现求交集的运算。
+
+练习题: 使用内连结求 product 表和 product2 表的交集.
+
+```sql
+SELECT P1.*
+  FROM product AS P1
+ INNER JOIN product2 AS P2
+    ON (P1.product_id  = P2.product_id
+   AND P1.product_name = P2.product_name
+   AND P1.product_type = P2.product_type
+   AND P1.sale_price   = P2.sale_price
+   AND P1.regist_date  = P2.regist_date)
+```
+
+### 4.2.2 外连结(OUTER JOIN)
+
+外连结会根据外连结的种类有选择地保留无法匹配到的行。
+
+按照保留的行位于哪张表,外连结有三种形式: **左连结**, **右连结** 和 **全外连结**。
+
+- 左连结会保存左表中无法按照 ON 子句匹配到的行, 此时对应右表的行均为缺失值; 
+- 右连结则会保存右表中无法按照 ON 子句匹配到的行, 此时对应左表的行均为缺失值; 
+- 全外连结则会同时保存两个表中无法按照 ON子句匹配到的行, 相应的另一张表中的行用缺失值填充.
+
+三种外连结的对应语法分别为:
+
+```sql
+-- 左连结     
+FROM <tb_1> LEFT  OUTER JOIN <tb_2> ON <condition(s)>
+-- 右连结     
+FROM <tb_1> RIGHT OUTER JOIN <tb_2> ON <condition(s)>
+-- 全外连结
+FROM <tb_1> FULL  OUTER JOIN <tb_2> ON <condition(s)>
+```
+
+#### 4.2.2.1 使用左连结
+
+练习题: 统计每种商品分别在哪些商店有售, 需要包括那些在每个商店都没货的商品.
+
+使用左连结的代码如下(注意区别于书上的右连结):
+
+```sql
+SELECT SP.shop_id
+       ,SP.shop_name
+       ,SP.product_id
+       ,P.product_name
+       ,P.sale_price
+  FROM product AS P
+  LEFT OUTER JOIN shopproduct AS SP
+    ON SP.product_id = P.product_id;
+```
+
+- **外连结要点 1: 选取出单张表中全部的信息**
+- **外连结要点 2: 使用 LEFT、RIGHT 来指定主表.**
+
+#### 4.2.2.2 结合 WHERE 子句使用左连结
+
+由于存在 null，使用 where 查询的时候需要额外注意。下面举例说明。
+
+**练习题：**
+
+使用外连结从 `shopproduct` 表和 `product` 表中找出那些在某个商店库存少于50的商品及对应的商店
+
