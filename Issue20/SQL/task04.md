@@ -482,3 +482,98 @@ SELECT SP.shop_id
 
 第三,我们不知道这样的语法到底还能使用多久.每个 DBMS 的开发者都会考虑放弃过时的语法,转而支持新的语法.虽然并不是马上就不能使用了,但那一天总会到来的.
 
+## 4.4 练习题
+
+### 4.4.1 查询
+
+找出 product 和 product2 中售价高于 500 的商品的基本信息。
+
+```sql
+SELECT * FROM product WHERE sale_price > 500
+UNION ALL 
+SELECT * FROM product2 WHERE sale_price > 500;
+```
+
+`UNION ALL ` 包含重复行。
+
+### 4.4.2 对称差
+
+借助对称差的实现方式, 求product和product2的交。
+
+```sql
+-- 两个集合的交集就是两个集合的并集减去两个集合的对称差
+-- 先求并集
+SELECT * FROM
+(SELECT * FROM product
+ UNION
+ SELECT * FROM product2) T
+-- 减去对称差
+WHERE product_id NOT IN
+(SELECT product_id
+  FROM product
+ WHERE product_id NOT IN (SELECT product_id FROM product2)
+ UNION
+SELECT product_id
+  FROM product2
+ WHERE product_id NOT IN (SELECT product_id FROM product));
+```
+
+### 4.4.3 连结
+
+每类商品中售价最高的商品都在哪些商店有售 ？
+
+ ```sql
+-- 取出想要的字段
+SELECT sp.shop_id, sp.shop_name, sp.product_id ,p.product_type
+  FROM shopproduct sp
+  JOIN product p
+    ON sp.product_id=p.product_id
+ WHERE sp.product_id in
+-- 过滤每个类型售价最高的商品
+(SELECT product_id 
+   FROM product p1
+   JOIN (SELECT product_type,
+                MAX(sale_price) as max_price 
+           FROM product 
+       GROUP BY product_type) p2 
+     ON p1.product_type=p2.product_type AND p1.sale_price=p2.max_price);
+ ```
+
+### 4.4.3 内连结和关联子查询
+
+分别使用内连结和关联子查询每一类商品中售价最高的商品。
+
+```sql
+ --方法1：关联子查询
+ SELECT product_type, product_name, sale_price
+  FROM product AS P1
+ WHERE sale_price = (SELECT max(sale_price)
+                       FROM product AS P2
+                      WHERE P1.product_type = P2.product_type
+
+--方法2：先连接，再过滤
+SELECT  P1.product_id,P1.product_name,P1.product_type,P1.sale_price,P2.max_price
+  FROM product AS P1
+ INNER JOIN 
+   (SELECT product_type,max(sale_price) AS max_price 
+      FROM product 
+     GROUP BY product_type) AS P2 
+    ON P1.product_type = P2.product_type
+ WHERE P1.sale_price= p2.max_price; 
+```
+
+### 4.4.5 关联子查询
+
+用关联子查询实现：在 `product` 表中，取出 product_id, produc_name, slae_price, 并按照商品的售价从低到高进行排序、对售价进行累计求和。
+
+```sql
+SELECT product_id, product_name, sale_price,
+	   (SELECT SUM(sale_price) FROM product AS P2
+	   -- ①价格更低的 ②价格相等，product_id不大于的（不包括下一行）
+		WHERE ((P2.sale_price < P1.sale_price) OR (P2.sale_price = P1.sale_price AND P2.product_id<=P1.product_id))) AS cum_price
+FROM product AS P1 
+ORDER BY sale_price,product_id;
+```
+
+
+
