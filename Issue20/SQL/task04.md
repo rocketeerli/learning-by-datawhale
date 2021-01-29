@@ -175,8 +175,8 @@ FROM <tb_1> INNER JOIN <tb_2> ON <condition(s)>
 SELECT SP.shop_id
       ,SP.shop_name
       ,MAX(P.sale_price) AS max_price
-  FROMshopproduct AS SP
- INNER JOINproduct AS P
+  FROM shopproduct AS SP
+ INNER JOIN product AS P
     ON SP.product_id = P.product_id
  GROUP BY SP.shop_id,SP.shop_name
 ```
@@ -358,3 +358,127 @@ COMMIT;
 ```
 
 ### 4.3.1 多表进行内连结
+
+ 使用内连接找出每个商店都有那些商品, 每种商品的库存总量分别是多少。
+
+```sql
+SELECT SP.shop_id
+       ,SP.shop_name
+       ,SP.product_id
+       ,P.product_name
+       ,P.sale_price
+       ,IP.inventory_quantity
+  FROM shopproduct AS SP
+ INNER JOIN product AS P
+    ON SP.product_id = P.product_id
+ INNER JOIN Inventoryproduct AS IP
+    ON SP.product_id = IP.product_id
+ WHERE IP.inventory_id = 'P001';
+```
+
+即使想要把连结的表增加到 4 张、5 张……使用 INNER JOIN 进行添加的方式也是完全相同的。
+
+### 4.3.2 多表进行外连结
+
+例子：
+
+```sql
+SELECT P.product_id
+       ,P.product_name
+       ,P.sale_price
+       ,SP.shop_id
+       ,SP.shop_name
+       ,IP.inventory_quantity
+  FROM product AS P
+  LEFT OUTER JOIN shopproduct AS SP
+ON SP.product_id = P.product_id
+LEFT OUTER JOIN Inventoryproduct AS IP
+ON SP.product_id = IP.product_id
+```
+
+### 4.3.3 ON 子句进阶–非等值连结
+
+使用非等值自左连结实现排名。
+
+```sql
+SELECT  product_id
+       ,product_name
+       ,sale_price
+       ,COUNT(p2_id) AS rank
+  FROM (--使用自左连结对每种商品找出价格不低于它的商品
+        SELECT P1.product_id
+               ,P1.product_name
+               ,P1.sale_price
+               ,P2.product_id AS P2_id
+               ,P2.product_name AS P2_name
+               ,P2.sale_price AS P2_price 
+          FROM product AS P1 
+          LEFT OUTER JOIN product AS P2 
+            ON P1.sale_price <= P2.sale_price 
+        ) AS X
+ GROUP BY product_id, product_name, sale_price
+ ORDER BY rank; 
+```
+
+注 1: COUNT 函数的参数是列名时, 会忽略该列中的缺失值, 参数为 * 时则不忽略缺失值.
+
+注 2: 上述排名方案存在一些问题–如果两个商品的价格相等, 则会导致两个商品的排名错误, 例如, 叉子和打孔器的排名应该都是第六, 但上述查询导致二者排名都是第七. 试修改上述查询使得二者的排名均为第六.
+
+注 3: 实际上, 进行排名有专门的函数, 这是 MySQL 8.0 新增加的窗口函数中的一种(窗口函数将在下一章学习), 但在较低版本的 MySQL 中只能使用上述自左连结的思路.
+
+### 4.3.4 交叉连结—— CROSS JOIN(笛卡尔积)
+
+在连结去掉 ON 子句, 就是所谓的交叉连结(CROSS JOIN)
+
+交叉连结的语法有如下几种形式:
+
+```sql
+-- 1.使用关键字 CROSS JOIN 显式地进行交叉连结
+SELECT SP.shop_id
+       ,SP.shop_name
+       ,SP.product_id
+       ,P.product_name
+       ,P.sale_price
+  FROM shopproduct AS SP
+ CROSS JOIN product AS P;
+--2.使用逗号分隔两个表,并省略 ON 子句
+SELECT SP.shop_id
+       ,SP.shop_name
+       ,SP.product_id
+       ,P.product_name
+       ,P.sale_price
+  FROM shopproduct AS SP , product AS P;
+```
+
+交叉连结没有应用到实际业务之中的原因有两个.一是其结果没有实用价值,二是由于其结果行数太多,需要花费大量的运算时间和高性能设备的支持。
+
+- 连结与笛卡儿积的关系
+
+笛卡儿积可以视作一种特殊的连结(事实上笛卡儿积的语法也可以写作 CROSS JOIN), 这种连结的 ON 子句是一个恒为真的谓词.
+
+在笛卡尔积的基础上, 我们增加一个 WHERE 子句, 将之前的连结条件作为筛选条件加进去, 我们会发现, 得到的结果恰好是直接使用内连接的结果.
+
+### 4.3.5 过时语法
+
+使用过时语法的内连结（结果与代码清单 7-9 相同）
+
+```sql
+SELECT SP.shop_id
+       ,SP.shop_name
+       ,SP.product_id
+       ,P.product_name
+       ,P.sale_price
+  FROM shopproduct SP, product P
+ WHERE SP.product_id = P.product_id
+   AND SP.shop_id = '000A';
+```
+
+这样的书写方式所得到的结果与标准语法完全相同,并且这样的语法可以在所有的 DBMS 中执行,并不能算是特定的语法,只是过时了而已.
+但是,由于这样的语法不仅过时,而且还存在很多其他的问题,不推荐使用的理由主要有以下三点:
+
+第一,使用这样的语法无法马上判断出到底是内连结还是外连结（又或者是其他种类的连结）.
+
+第二,由于连结条件都写在 WHERE 子句之中,因此无法在短时间内分辨出哪部分是连结条件,哪部分是用来选取记录的限制条件.
+
+第三,我们不知道这样的语法到底还能使用多久.每个 DBMS 的开发者都会考虑放弃过时的语法,转而支持新的语法.虽然并不是马上就不能使用了,但那一天总会到来的.
+
