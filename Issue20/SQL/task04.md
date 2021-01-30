@@ -574,6 +574,3 @@ SELECT product_id, product_name, sale_price,
 FROM product AS P1 
 ORDER BY sale_price,product_id;
 ```
-
-
-
