@@ -426,3 +426,117 @@ ON t.id = c.p_id
 ORDER BY t.id;
 ```
 
+## 练习六：至少有五名直接下属的经理 （难度：中等）
+
+### Question
+
+**Employee**表包含所有员工及其上级的信息。每位员工都有一个Id，并且还有一个对应主管的Id（ManagerId）。
+
+```nohighlight
++------+----------+-----------+----------+
+|Id    |Name 	  |Department |ManagerId |
++------+----------+-----------+----------+
+|101   |John 	  |A 	      |null      |
+|102   |Dan 	  |A 	      |101       |
+|103   |James 	  |A 	      |101       |
+|104   |Amy 	  |A 	      |101       |
+|105   |Anne 	  |A 	      |101       |
+|106   |Ron 	  |B 	      |101       |
++------+----------+-----------+----------+
+```
+
+针对**Employee**表，写一条SQL语句找出有5个下属的主管。对于上面的表，结果应输出：
+
+```nohighlight
++-------+
+| Name  |
++-------+
+| John  |
++-------+
+```
+
+**注意:**
+
+没有人向自己汇报。
+
+### Solution
+
+1. 创建表：
+
+```sql
+CREATE TABLE employee(
+	`Id` INT NOT NULL,
+	`Name` VARCHAR(25) NOT NULL,
+	`Department` CHAR(1) NOT NULL,
+	`ManagerId` INT NULL,
+	PRIMARY KEY(Id)
+);
+```
+
+2. 插入数据：
+
+```sql
+INSERT INTO employee VALUES
+(101, "John", 'A', NULL),
+(102, "Dan", 'A', 101),
+(103, "James", 'A', 101),
+(104, "Amy", 'A', 101),
+(105, "Anne", 'A', 101),
+(106, "Ron", 'B', 101);
+```
+
+3. 查询：
+
+```sql
+SELECT e1.`Name` AS `Name`
+FROM employee e1
+JOIN employee e2
+ON e1.Id = e2.ManagerId AND e1.Id != e2.Id
+GROUP BY e1.`Name`
+HAVING COUNT(*) >= 5;
+```
+
+连结俩相同的表。。注意 `Having` 的使用。
+
+这题，如果只选出主管，直接将 `ManagerId` 为 `NULL` 的挑出来，再做选择也成。
+
+## 练习七: 分数排名 （难度：中等）
+
+### Question
+
+练习三的分数表，实现排名功能，但是排名需要是非连续的，如下：
+
+```nohighlight
++-------+------+
+| Score | Rank |
++-------+------+
+| 4.00  | 1    |
+| 4.00  | 1    |
+| 3.85  | 3    |
+| 3.65  | 4    |
+| 3.65  | 4    |
+| 3.50  | 6    |
++-------+------
+```
+
+### Solution
+
+```sql
+SELECT ROUND(`Score`, 2) AS `Score`,
+RANK() over(ORDER BY `Score` DESC) AS `Rank`
+FROM score
+ORDER BY(`Score`) DESC;
+```
+
+注意 `RANK()` 窗口函数的使用，以及 `ORDER BY` 的 `DESC`。
+
+还有，要注意两位小数点。。。(使用 `ROUND` 函数)
+
+其实可以不使用最后的 `Order by`
+
+```sql
+SELECT ROUND(`Score`, 2) AS `Score`,
+RANK() over(ORDER BY `Score` DESC) AS `Rank`
+FROM score;
+```
+
