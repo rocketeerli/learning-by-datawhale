@@ -251,3 +251,178 @@ SELECT
 FROM score;
 ```
 
+## 练习四：连续出现的数字（难度：中等）
+
+### Question
+
+编写一个 SQL 查询，查找所有至少连续出现三次的数字。
+
+```nohighlight
++----+-----+
+| Id | Num |
++----+-----+
+| 1  |  1  |
+| 2  |  1  |
+| 3  |  1  |
+| 4  |  2  |
+| 5  |  1  |
+| 6  |  2  |
+| 7  |  2  |
++----+-----+
+```
+
+例如，给定上面的 Logs 表， 1 是唯一连续出现至少三次的数字。
+
+```nohighlight
++-----------------+
+| ConsecutiveNums |
++-----------------+
+| 1               |
++-----------------+
+```
+
+### Solution
+
+1. 创建数据库表
+
+```sql
+CREATE TABLE `Logs`(
+	`Id` INT NOT NULL AUTO_INCREMENT,
+	`Num` INT NOT NULL,
+	PRIMARY KEY (Id)
+);
+```
+
+2. 插入数据
+
+```sql
+INSERT INTO `logs`(Num) VALUES(1), (1), (1), (2), (1), (2), (2);
+```
+
+3. 查询
+
+```sql
+SELECT logs1.Num AS ConsecutiveNums 
+FROM `logs` logs1 
+INNER JOIN `logs` logs2
+INNER JOIN `logs` logs3
+ON logs1.Id = logs2.Id - 1 AND 
+	logs2.Id = logs3.Id - 1
+WHERE	logs1.Num = logs2.Num AND 
+	logs2.Num = logs3.Num;
+```
+
+使用内连结，先将三个相同的表连起来，再进行查询。
+
+看了几个其他人的答案，基本都是三个相同的表进行连结的方法，就是连结条件写在哪里的区别了。我以为会有啥高级的方法。。。
+
+## 练习五：树节点 （难度：中等）
+
+### Question
+
+对于**tree**表，*id*是树节点的标识，*p_id*是其父节点的*id*。
+
+```nohighlight
++----+------+
+| id | p_id |
++----+------+
+| 1  | null |
+| 2  | 1    |
+| 3  | 1    |
+| 4  | 2    |
+| 5  | 2    |
++----+------+
+```
+
+每个节点都是以下三种类型中的一种：
+
+- Root: 如果节点是根节点。
+- Leaf: 如果节点是叶子节点。
+- Inner: 如果节点既不是根节点也不是叶子节点。
+
+写一条查询语句打印节点id及对应的节点类型。按照节点id排序。上面例子的对应结果为：
+
+```nohighlight
++----+------+
+| id | Type |
++----+------+
+| 1  | Root |
+| 2  | Inner|
+| 3  | Leaf |
+| 4  | Leaf |
+| 5  | Leaf |
++----+------+
+```
+
+**说明**
+
+- 节点’1’是根节点，因为它的父节点为NULL，有’2’和’3’两个子节点。
+- 节点’2’是内部节点，因为它的父节点是’1’，有子节点’4’和’5’。
+- 节点’3’，‘4’，'5’是叶子节点，因为它们有父节点但没有子节点。
+
+下面是树的图形：
+
+```
+    1         
+  /   \ 
+ 2    3    
+/ \
+4  5
+```
+
+**注意**
+
+如果一个树只有一个节点，只需要输出根节点属性。
+
+### Solution
+
+1. 创建表：
+
+```sql
+SELECT id
+FROM tree
+CREATE TABLE tree (
+	id INT NOT NULL AUTO_INCREMENT,
+	p_id INT NULL,
+	PRIMARY KEY(id)
+);
+```
+
+2. 插入数据：
+
+```sql
+INSERT INTO tree(p_id) VALUE(NULL), (1), (1), (2), (2);
+```
+
+3. 查询：
+
+```sql
+SELECT t.id, case
+when p_id IS NULL then 'Root'
+when son_num IS NULL then 'Leaf'
+else 'Inner' END AS `Type`
+FROM tree t
+LEFT JOIN (
+	SELECT t2.id AS id, COUNT(*) AS son_num
+		FROM tree t2
+		JOIN tree t3
+		ON t2.id = t3.p_id
+		GROUP BY (t2.id)
+) c
+ON t.id = c.id
+ORDER BY t.id;
+```
+
+有个简介的答案：
+
+```sql
+SELECT DISTINCT t.id, case
+when t.p_id IS NULL then 'Root'
+when c.id IS NULL then 'Leaf'
+else 'Inner' END AS `Type`
+FROM tree t
+LEFT JOIN tree c
+ON t.id = c.p_id
+ORDER BY t.id;
+```
+
