@@ -706,3 +706,203 @@ WHERE ranking <= 3;
 ```
 
 首先使用窗口函数进行升序排序，然后根据排序的序号进行筛选。
+
+## 练习十：平面上最近距离 (难度: 困难）
+
+### Question
+
+**point_2d**表包含一个平面内一些点（超过两个）的坐标值（x，y）。
+
+写一条查询语句求出这些点中的最短距离并保留2位小数。
+
+```nohighlight
+|x   | y  |
+|----|----|
+| -1 | -1 |
+|  0 |  0 |
+| -1 | -2 |
+```
+
+最短距离是1，从点（-1，-1）到点（-1，-2）。所以输出结果为：
+
+| shortest |
+
+1.00
+
+```nohighlight
++--------+
+|shortest|
++--------+
+|1.00    |
++--------+
+```
+
+**注意：** 所有点的最大距离小于10000。
+
+### Solution
+
+1. 建表：
+
+```sql
+CREATE TABLE point_2d(
+	`x` INT NOT NULL,
+	`y` INT NOT NULL
+);
+```
+
+2. 插入数据：
+
+```sql
+INSERT INTO point_2d VALUES
+(-1, -1),
+(0, 0),
+(-1, -2);
+```
+
+3. 查询：
+
+```sql
+SELECT ROUND(MIN(SQRT(POWER((p1.`x` - p2.`x`), 2)
+			 + POWER((p1.`y` - p2.`y`), 2))), 2) shortest
+FROM point_2d p1
+INNER JOIN point_2d p2
+ON(p1.`x` != p2.`x` OR p1.`y` != p2.`y`);
+```
+
+计算两个表的笛卡尔乘积（注意：两个表相同的数据不再进行连结），然后计算最小值。
+
+可以先分组再排序，或者直接排序，或者就像这样，直接计算最小值。
+
+这里其实笛卡尔积，重复了一遍，可以想办法把重复的那一次去掉，在数据量大的时候会更高效。
+
+## 练习十一：行程和用户（难度：困难）
+
+### Question
+
+Trips 表中存所有出租车的行程信息。每段行程有唯一键 Id，Client_Id 和 Driver_Id 是 Users 表中 Users_Id 的外键。Status 是枚举类型，枚举成员为 (‘completed’, ‘cancelled_by_driver’, ‘cancelled_by_client’)。
+
+| Id   | Client_Id | Driver_Id | City_Id | Status              | Request_at |
+| :--- | :-------- | :-------- | :------ | :------------------ | :--------- |
+| 1    | 1         | 10        | 1       | completed           | 2013-10-1  |
+| 2    | 2         | 11        | 1       | cancelled_by_driver | 2013-10-1  |
+| 3    | 3         | 12        | 6       | completed           | 2013-10-1  |
+| 4    | 4         | 13        | 6       | cancelled_by_client | 2013-10-1  |
+| 5    | 1         | 10        | 1       | completed           | 2013-10-2  |
+| 6    | 2         | 11        | 6       | completed           | 2013-10-2  |
+| 7    | 3         | 12        | 6       | completed           | 2013-10-2  |
+| 8    | 2         | 12        | 12      | completed           | 2013-10-3  |
+| 9    | 3         | 10        | 12      | completed           | 2013-10-3  |
+| 10   | 4         | 13        | 12      | cancelled_by_driver | 2013-10-3  |
+
+Users 表存所有用户。每个用户有唯一键 Users_Id。Banned 表示这个用户是否被禁止，Role 则是一个表示（‘client’, ‘driver’, ‘partner’）的枚举类型。
+
+```nohighlight
++----------+--------+--------+
+| Users_Id | Banned |  Role  |
++----------+--------+--------+
+|    1     |   No   | client |
+|    2     |   Yes  | client |
+|    3     |   No   | client |
+|    4     |   No   | client |
+|    10    |   No   | driver |
+|    11    |   No   | driver |
+|    12    |   No   | driver |
+|    13    |   No   | driver |
++----------+--------+--------+
+```
+
+写一段 SQL 语句查出**2013年10月1日**至**2013年10月3日**期间非禁止用户的取消率。基于上表，你的 SQL 语句应返回如下结果，取消率（Cancellation Rate）保留两位小数。
+
+```nohighlight
++------------+-------------------+
+|     Day    | Cancellation Rate |
++------------+-------------------+
+| 2013-10-01 |       0.33        |
+| 2013-10-02 |       0.00        |
+| 2013-10-03 |       0.50        |
++------------+-------------------+
+```
+
+### Solution
+
+1. 建表 & 插入数据：
+
+- 创建 `Users`：
+
+```sql
+CREATE TABLE Users(
+	`Users_Id` INT NOT NULL,
+	`Banned` ENUM("Yes", "No") NOT NULL,
+	`Role` ENUM("client", "driver", "partner") NOT NULL,
+	PRIMARY KEY(`Users_Id`)
+);
+```
+
+- 向 `Users` 中插入数据：
+
+```sql
+INSERT INTO users VALUES
+(1,'No','client'),
+(2,'YES','client'),
+(3,'No','client'),
+(4,'No','client'),
+(10,'No','driver'),
+(11,'No','driver'),
+(12,'No','driver'),
+(13,'No','driver');
+```
+
+- 创建 `Trips`：
+
+```sql
+CREATE TABLE Trips (
+	`Id` INT NOT NULL AUTO_INCREMENT,
+	`Client_Id` INT NOT NULL ,
+	`Driver_Id` INT NOT NULL,
+	`City_Id` INT NOT NULL,
+	`Status` ENUM('completed',
+		 'cancelled_by_driver', 
+		 'cancelled_by_client') NOT NULL,
+	`Request_at` DATE,
+	PRIMARY KEY(`Id`),
+	FOREIGN KEY (`Client_Id`) REFERENCES Users(`Users_Id`),
+	FOREIGN KEY (`Driver_Id`) REFERENCES Users(`Users_Id`)
+);
+```
+
+- 向 `Trips` 中插入数据：
+
+```sql
+INSERT INTO Trips VALUES
+(1,1,10,1,'completed','2013-10-1'),
+(2,2,11,1,'cancelled_by_driver','2013-10-1'),
+(3,3,12,6,'completed','2013-10-1'),
+(4,4,13,6,'cancelled_by_client','2013-10-1'),
+(5,1,10,1,'completed','2013-10-2'),
+(6,2,11,6,'completed','2013-10-2'),
+(7,3,12,6,'completed','2013-10-2'),
+(8,2,12,12,'completed','2013-10-3'),
+(9,3,10,12,'completed','2013-10-3'),
+(10,4,13,12,'cancelled_by_driver','2013-10-3');
+```
+
+2. 查询：
+
+```sql
+SELECT Request_at AS `Day`,
+	ROUND(SUM(case when t.`Status` != "completed" then 1 ELSE 0 END)
+	 / COUNT(*), 2) AS `Cancellation Rate`
+FROM users u1
+INNER JOIN trips t
+INNER JOIN users u2
+ON(u1.Users_Id = t.Client_Id AND
+	u1.Banned = 'No' AND u2.Banned = 'No' AND
+	u2.Users_Id = t.Driver_Id AND 
+	t.Request_at BETWEEN '2013-10-1' AND '2013-10-3')
+GROUP BY(Request_at)
+ORDER BY Request_at ASC;
+```
+
+老套路了，连结表，然后筛选。
+
+Hurrah! Finish all!!!
