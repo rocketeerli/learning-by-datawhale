@@ -540,3 +540,169 @@ RANK() over(ORDER BY `Score` DESC) AS `Rank`
 FROM score;
 ```
 
+## 练习八：查询回答率最高的问题 （难度：中等）
+
+### Question
+
+求出**survey_log**表中回答率最高的问题，表格的字段有：**uid, action, question_id, answer_id, q_num, timestamp**。
+
+uid是用户id；action的值为：“show”， “answer”， “skip”；当action是"answer"时，answer_id不为空，相反，当action是"show"和"skip"时为空（null）；q_num是问题的数字序号。
+
+写一条sql语句找出回答率最高的问题。
+
+**举例：**
+
+**输入**
+
+| uid  | action | question_id | answer_id | q_num | timestamp |
+| :--- | :----- | :---------- | :-------- | :---- | :-------- |
+| 5    | show   | 285         | null      | 1     | 123       |
+| 5    | answer | 285         | 124124    | 1     | 124       |
+| 5    | show   | 369         | null      | 2     | 125       |
+| 5    | skip   | 369         | null      | 2     | 126       |
+
+**输出**
+
+| survey_log |
+| :--------- |
+| 285        |
+
+**说明**
+
+问题285的回答率为1/1，然而问题369的回答率是0/1，所以输出是285。
+
+**注意：**最高回答率的意思是：同一个问题出现的次数中回答的比例。
+
+### Solution
+
+1. 创建数据库表：
+
+```sql
+CREATE TABLE survey_log (
+	uid int NOT NULL,
+	`action` VARCHAR(10) NOT NULL, 
+	question_id INT NOT NULL, 
+	answer_id INT NULL, 
+	q_num INT NOT NULL, 
+	`timestamp` INT NOT NULL 
+);
+```
+
+2. 插入数据：
+
+```sql
+INSERT INTO survey_log VALUES
+(5, "show", 285, NULL, 1, 123),
+(5, "answer", 285, 124124,	1,	124),
+(5, "show", 369, NULL, 2, 125),
+(5, "skip", 369, NULL, 2, 126);
+```
+
+3. 查询：
+
+- 使用子查询的方法：
+
+```sql
+SELECT question_id AS `survey_log`
+FROM (
+	SELECT question_id, MAX(a.answer_rate)
+	FROM (
+		SELECT question_id, 
+			COUNT(answer_id) / COUNT(question_id) AS answer_rate
+		FROM survey_log
+		WHERE `action` != "show"
+		GROUP BY (question_id)
+	) a
+) b;
+```
+
+- 使用排序的方法：
+
+```sql
+SELECT question_id AS `survey_log`
+FROM (
+	SELECT question_id, 
+		COUNT(answer_id) / COUNT(question_id) AS answer_rate
+	FROM survey_log
+	WHERE `action` != "show"
+	GROUP BY (question_id)
+) a
+ORDER BY a.answer_rate DESC
+LIMIT 1;
+```
+
+## 练习九：各部门前3高工资的员工（难度：中等）
+
+### Question
+
+将项目7中的employee表清空，重新插入以下数据（其实是多插入5,6两行）：
+
+```nohighlight
++----+-------+--------+--------------+
+| Id | Name  | Salary | DepartmentId |
++----+-------+--------+--------------+
+| 1  | Joe   | 70000  | 1            |
+| 2  | Henry | 80000  | 2            |
+| 3  | Sam   | 60000  | 2            |
+| 4  | Max   | 90000  | 1            |
+| 5  | Janet | 69000  | 1            |
+| 6  | Randy | 85000  | 1            |
++----+-------+--------+--------------+
+```
+
+编写一个 SQL 查询，找出每个部门工资前三高的员工。例如，根据上述给定的表格，查询结果应返回：
+
+```nohighlight
++------------+----------+--------+
+| Department | Employee | Salary |
++------------+----------+--------+
+| IT         | Max      | 90000  |
+| IT         | Randy    | 85000  |
+| IT         | Joe      | 70000  |
+| Sales      | Henry    | 80000  |
+| Sales      | Sam      | 60000  |
++------------+----------+--------+
+```
+
+此外，请考虑实现各部门前N高工资的员工功能。
+
+### Solution
+
+1. 建表：
+
+```sql
+CREATE TABLE Employee(
+	`Id` INT NOT NULL AUTO_INCREMENT,
+	`Name` VARCHAR(25) NOT NULL,
+	`Salary` INT NOT NULL,
+	`DepartmentId` INT NOT NULL,
+	PRIMARY KEY (Id)
+);
+```
+
+2. 插入数据：
+
+```sql
+INSERT INTO employee VALUES(1,'Joe',70000,1),
+(2, 'Henry', 80000, 2),
+(3, 'Sam', 60000, 2),
+(4, 'Max', 90000, 1),
+(5, 'Janet', 69000, 1),
+(6, 'Randy', 85000, 1);
+```
+
+3. 查询
+
+```sql
+SELECT a.`Department`, a.`Employee`, a.Salary
+FROM (SELECT d.`Name` AS `Department`, 
+		e.`Name` AS `Employee`, Salary, 
+		ROW_NUMBER() OVER (PARTITION BY d.Id
+                  ORDER BY Salary DESC) AS ranking
+FROM department d
+INNER JOIN employee e
+ON(d.Id = e.DepartmentId)) a
+WHERE ranking <= 3;
+```
+
+首先使用窗口函数进行升序排序，然后根据排序的序号进行筛选。
